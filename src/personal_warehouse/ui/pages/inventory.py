@@ -100,7 +100,8 @@ class InventoryPage:
             return
         tree = self.inv_tree
         keep = set(tree.selection())
-        tree.delete(*tree.get_children())
+        existing = set(tree.get_children())
+        wanted = set()
         sql, args = ["SELECT * FROM items WHERE 1=1"], []
         if not self.show_archived.get():
             sql.append("AND is_active=1")
@@ -134,11 +135,19 @@ class InventoryPage:
                 tag = ("out",)
             elif r["min_stock"] > 0 and r["quantity"] <= r["min_stock"]:
                 tag = ("low",)
-            tree.insert("", "end", iid=str(r["id"]), tags=tag, values=(
-                r["item_code"], item_name(r), r["category"] or "", r["engine_application"] or "",
-                make_location(r["section"], r["part"]), cond_t(r["condition"]),
-                f'{qty_fmt(r["quantity"])} {unit_t(r["unit"])}',
-                money(r["purchase_price"]), money(r["selling_price"])))
+            iid = str(r["id"])
+            wanted.add(iid)
+            values = (r["item_code"], item_name(r), r["category"] or "", r["engine_application"] or "",
+                      make_location(r["section"], r["part"]), cond_t(r["condition"]),
+                      f'{qty_fmt(r["quantity"])} {unit_t(r["unit"])}',
+                      money(r["purchase_price"]), money(r["selling_price"]))
+            if iid in existing:
+                tree.item(iid, values=values, tags=tag)
+            else:
+                tree.insert("", "end", iid=iid, tags=tag, values=values)
+        stale = existing - wanted
+        if stale:
+            tree.delete(*stale)
             if r["is_active"]:
                 units += r["quantity"]
                 value += r["quantity"] * r["purchase_price"]
