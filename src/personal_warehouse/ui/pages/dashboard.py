@@ -14,23 +14,71 @@ class DashboardPage:
     def _build_dashboard(self):
         f = self.dashboard_tab
         self._page_head(f, tr("dash_title"), tr("dash_sub"))
+
+        # Four balanced KPI cards, matching the reference's compact metric strip.
         cards = tk.Frame(f, bg=C["bg"])
-        cards.pack(fill="x")
+        cards.pack(fill="x", pady=(0, 12))
         self.metric_vars = {}
-        for key, title, color in [("items", "m_items", C["accent"]), ("units", "m_units", C["teal"]),
-                                  ("value", "m_value", C["ok"]), ("profit", "m_profit", C["violet"]),
-                                  ("alerts", "m_alerts", C["warn"])]:
-            c = card(cards)
-            c.pack(side=self.s1, fill="x", expand=True, padx=5)
-            tk.Frame(c, bg=color, width=5).pack(side=self.s1, fill="y")
-            inner = tk.Frame(c, bg=C["card"], padx=16, pady=14)
-            inner.pack(side=self.s1, fill="both", expand=True)
-            lbl(inner, tr(title), 10, False, C["muted"], C["card"], anchor=self.a1).pack(fill="x")
+        metrics = [("items", "m_items", C["accent"]), ("units", "m_units", C["teal"]),
+                   ("value", "m_value", C["violet"]), ("alerts", "m_alerts", C["warn"])]
+        for key, title, color in metrics:
+            c = card(cards, padx=0, pady=0)
+            c.pack(side=self.s1, fill="both", expand=True, padx=4)
+            tk.Frame(c, bg=color, height=4).pack(fill="x")
+            inner = tk.Frame(c, bg=C["card"], padx=16, pady=13)
+            inner.pack(fill="both", expand=True)
+            lbl(inner, tr(title), 9, False, C["muted"], C["card"], anchor=self.a1).pack(fill="x")
             self.metric_vars[key] = tk.StringVar(value="—")
             tk.Label(inner, textvariable=self.metric_vars[key], bg=C["card"], fg=C["title"],
-                     font=fnt(20, True), anchor=self.a1).pack(fill="x", pady=(6, 0))
-        qa = tk.Frame(f, bg=C["bg"])
-        qa.pack(fill="x", pady=(14, 0))
+                     font=fnt(22, True), anchor=self.a1).pack(fill="x", pady=(7, 0))
+
+        # Primary content row: stock distribution, risk list, and movement feed.
+        lower = tk.Frame(f, bg=C["bg"])
+        lower.pack(fill="both", expand=True, pady=(2, 0))
+        lower.columnconfigure(0, weight=4, uniform="dash")
+        lower.columnconfigure(1, weight=5, uniform="dash")
+        lower.columnconfigure(2, weight=4, uniform="dash")
+        lower.rowconfigure(0, weight=1)
+
+        def panel(col, title, subtitle=""):
+            c = card(lower, padx=14, pady=13)
+            c.grid(row=0, column=col, sticky="nsew", padx=4, pady=2)
+            head = tk.Frame(c, bg=C["card"])
+            head.pack(fill="x", pady=(0, 10))
+            lbl(head, title, 11, True, C["title"], C["card"], anchor=self.a1).pack(side=self.s1)
+            if subtitle:
+                lbl(head, subtitle, 8, False, C["muted"], C["card"]).pack(side=self.s2)
+            return c
+
+        sections = panel(0, tr("card_sections"))
+        self.section_canvas = tk.Canvas(sections, bg=C["card"], highlightthickness=0, height=300)
+        self.section_canvas.pack(fill="both", expand=True)
+        self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
+
+        alerts = panel(1, tr("card_alerts"))
+        w, self.alert_tree = make_tree(
+            alerts, ("name", "loc", "qty", "min"),
+            {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
+            {"name": 170, "loc": 60, "qty": 55, "min": 60}, {"name": "w"}, self.rtl, height=11)
+        w.pack(fill="both", expand=True)
+        self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
+
+        recent = panel(2, tr("card_recent"))
+        w, self.recent_tree = make_tree(
+            recent, ("time", "name", "type", "qty"),
+            {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
+            {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=11)
+        w.pack(fill="both", expand=True)
+
+        self._dashboard_panels = [sections, alerts, recent]
+        self._dashboard_lower = lower
+        self._dashboard_compact = None
+        lower.bind("<Configure>", self._adapt_dashboard, add="+")
+
+        # Quick actions are a compact footer row rather than competing with KPIs.
+        self._dashboard_qa = tk.Frame(f, bg=C["bg"])
+        self._dashboard_qa.pack(fill="x", pady=(10, 0))
+        self._dashboard_qa_buttons = []
         for text, cmd, kind in [(tr("qa_add"), self.new_item, "primary"),
                                 (tr("qa_inv"), lambda: self.pages.select(self.inventory_tab), "soft"),
                                 (tr("qa_move"), lambda: self.pages.select(self.movement_tab), "soft"),
@@ -38,36 +86,45 @@ class DashboardPage:
                                 (tr("qa_labels"), self.print_selected_labels_from_dashboard, "soft"),
                                 (tr("qa_export"), self.export_excel, "soft"),
                                 (tr("qa_backup"), self.backup_all, "soft")]:
-            btn(qa, text, cmd, kind).pack(side=self.s1, padx=4)
-        lower = tk.Frame(f, bg=C["bg"])
-        lower.pack(fill="both", expand=True, pady=(14, 0))
-        for i in range(3):
-            lower.columnconfigure(i, weight=1, uniform="dash")
-        lower.rowconfigure(0, weight=1)
+            self._dashboard_qa_buttons.append(btn(self._dashboard_qa, text, cmd,
+                                                  "soft" if kind == "soft" else kind, padx=10, pady=7))
+        self._dashboard_qa.bind("<Configure>", self._layout_dashboard_actions, add="+")
 
-        def panel(col, title):
-            c = card(lower, padx=14, pady=12)
-            c.grid(row=0, column=col, sticky="nsew", padx=5)
-            lbl(c, title, 10, True, C["title"], C["card"], anchor=self.a1).pack(fill="x", pady=(0, 8))
-            return c
+    def _adapt_dashboard(self, event=None):
+        if not hasattr(self, "_dashboard_lower"):
+            return
+        width = self._dashboard_lower.winfo_width()
+        if not isinstance(width, (int, float)):
+            return
+        compact = width < 1220
+        if compact == self._dashboard_compact:
+            return
+        self._dashboard_compact = compact
+        if compact:
+            for col in range(3):
+                self._dashboard_lower.columnconfigure(col, weight=1, uniform="")
+            for row, panel in enumerate(self._dashboard_panels):
+                panel.grid_configure(row=row, column=0, columnspan=3, sticky="nsew")
+                self._dashboard_lower.rowconfigure(row, weight=1)
+        else:
+            for row in range(3):
+                self._dashboard_lower.rowconfigure(row, weight=0)
+            self._dashboard_lower.rowconfigure(0, weight=1)
+            for col, panel in enumerate(self._dashboard_panels):
+                panel.grid_configure(row=0, column=col, columnspan=1, sticky="nsew")
+                self._dashboard_lower.columnconfigure(col, weight=(4, 5, 4)[col], uniform="dash")
 
-        left = panel(0, tr("card_sections"))
-        self.section_canvas = tk.Canvas(left, bg=C["card"], highlightthickness=0, height=260)
-        self.section_canvas.pack(fill="both", expand=True)
-        self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
-        mid = panel(1, tr("card_alerts"))
-        w, self.alert_tree = make_tree(
-            mid, ("name", "loc", "qty", "min"),
-            {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
-            {"name": 170, "loc": 60, "qty": 55, "min": 60}, {"name": "w"}, self.rtl, height=9)
-        w.pack(fill="both", expand=True)
-        self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
-        right = panel(2, tr("card_recent"))
-        w, self.recent_tree = make_tree(
-            right, ("time", "name", "type", "qty"),
-            {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
-            {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=9)
-        w.pack(fill="both", expand=True)
+    def _layout_dashboard_actions(self, event=None):
+        if not hasattr(self, "_dashboard_qa_buttons"):
+            return
+        width = self._dashboard_qa.winfo_width()
+        if not isinstance(width, (int, float)):
+            return
+        cols = 3 if width < 850 else (5 if width < 1180 else 7)
+        for i, button in enumerate(self._dashboard_qa_buttons):
+            button.grid(row=i // cols, column=i % cols, sticky="ew", padx=3, pady=2)
+        for col in range(cols):
+            self._dashboard_qa.columnconfigure(col, weight=1)
 
     def print_selected_labels_from_dashboard(self):
         self.pages.select(self.inventory_tab)
@@ -117,7 +174,6 @@ class DashboardPage:
         self.metric_vars["items"].set(str(r["n"]))
         self.metric_vars["units"].set(qty_fmt(r["units"]))
         self.metric_vars["value"].set(money(r["value"]))
-        self.metric_vars["profit"].set(money(r["profit"]))
         self.metric_vars["alerts"].set(str(len(alerts)))
         self._sect_data = sect
         self._draw_sections()

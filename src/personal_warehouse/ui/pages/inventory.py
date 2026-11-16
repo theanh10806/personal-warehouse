@@ -15,38 +15,43 @@ from personal_warehouse.ui.widgets import btn, card, lbl, make_tree
 class InventoryPage:
     def _build_inventory(self):
         f = self.inventory_tab
-        top = tk.Frame(f, bg=C["bg"])
-        top.pack(fill="x", pady=(0, 12))
-        lbl(top, tr("inv_title"), 22, True, C["title"]).pack(side=self.s1)
-        btn(top, tr("btn_export"), self.export_excel, "soft").pack(side=self.s2, padx=4)
-        btn(top, tr("btn_labels"), self.print_selected_labels, "soft").pack(side=self.s2, padx=4)
-        btn(top, tr("btn_add_item"), self.new_item, "primary").pack(side=self.s2, padx=4)
+        head = self._page_head(f, tr("inv_title"))
+        actions = tk.Frame(head, bg=C["bg"])
+        actions.pack(side=self.s2, anchor="e")
+        btn(actions, tr("btn_export"), self.export_excel, "soft").pack(side=self.s2, padx=(6, 0))
+        btn(actions, tr("btn_labels"), self.print_selected_labels, "soft").pack(side=self.s2, padx=(6, 0))
+        btn(actions, tr("btn_add_item"), self.new_item, "primary").pack(side=self.s2, padx=(6, 0))
 
-        flt = card(f, padx=12, pady=10)
-        flt.pack(fill="x", pady=(0, 10))
-        lbl(flt, tr("lbl_search"), 10, False, C["muted"], C["card"]).pack(side=self.s1)
+        # Filter toolbar, visually separated from the data grid.
+        flt = card(f, padx=14, pady=12)
+        flt.pack(fill="x", pady=(0, 12))
+        search = tk.Frame(flt, bg=C["card"])
+        search.pack(fill="x")
+        lbl(search, tr("lbl_search"), 9, True, C["muted"], C["card"]).pack(side=self.s1, padx=(0, 8))
         self.search_var = tk.StringVar()
-        self.search_entry = ttk.Entry(flt, textvariable=self.search_var, width=32, justify=self.just)
-        self.search_entry.pack(side=self.s1, padx=6)
+        self.search_entry = ttk.Entry(search, textvariable=self.search_var, width=22, justify=self.just)
+        self.search_entry.pack(side=self.s1, padx=(0, 6), ipady=2)
         self.search_var.trace_add("write", lambda *a: self._debounce_search())
-        btn(flt, "✕", lambda: self.search_var.set(""), "soft", padx=8, pady=4).pack(side=self.s1)
+        btn(search, "✕", lambda: self.search_var.set(""), "ghost", padx=9, pady=6).pack(side=self.s1, padx=(0, 12))
         self.loc_filter = tk.StringVar(value=tr("all_locations"))
         loc_values = [tr("all_locations")] + [tr("section_n", s) for s in SECTIONS] + \
                      [make_location(s, p) for s in SECTIONS for p in PARTS]
-        cb = ttk.Combobox(flt, textvariable=self.loc_filter, state="readonly", width=16, values=loc_values,
+        cb = ttk.Combobox(search, textvariable=self.loc_filter, state="readonly", width=13, values=loc_values,
                           justify=self.just)
-        cb.pack(side=self.s1, padx=8)
+        cb.pack(side=self.s1, padx=5)
         self.cond_filter = tk.StringVar(value=tr("all_conditions"))
-        cc = ttk.Combobox(flt, textvariable=self.cond_filter, state="readonly", width=18, justify=self.just,
+        cc = ttk.Combobox(search, textvariable=self.cond_filter, state="readonly", width=13, justify=self.just,
                           values=[tr("all_conditions")] + [cond_t(c) for c in CONDITIONS])
-        cc.pack(side=self.s1)
+        cc.pack(side=self.s1, padx=5)
         for w in (cb, cc):
             w.bind("<<ComboboxSelected>>", lambda e: self.refresh_inventory())
         self.low_only, self.show_archived = tk.BooleanVar(), tk.BooleanVar()
+        flags = tk.Frame(flt, bg=C["card"])
+        flags.pack(fill="x", pady=(10, 0))
         for text, var in [(tr("low_only"), self.low_only), (tr("show_archived"), self.show_archived)]:
-            tk.Checkbutton(flt, text=text, variable=var, command=self.refresh_inventory, bg=C["card"], fg=C["ink"],
+            tk.Checkbutton(flags, text=text, variable=var, command=self.refresh_inventory, bg=C["card"], fg=C["ink"],
                            activebackground=C["card"], activeforeground=C["ink"], selectcolor=C["input"],
-                           font=fnt(10)).pack(side=self.s1, padx=8)
+                           font=fnt(9), padx=4).pack(side=self.s1, padx=(0, 12))
 
         cols = ("code", "name", "category", "engine", "location", "condition", "qty", "buy", "sell")
         self.inv_heads = {"code": tr("h_code"), "name": tr("h_name"), "category": tr("h_category"),
@@ -54,11 +59,13 @@ class InventoryPage:
                           "qty": tr("h_qty"), "buy": tr("h_buy"), "sell": tr("h_sell")}
         widths = {"code": 95, "name": 240, "category": 125, "engine": 160, "location": 80,
                   "condition": 105, "qty": 90, "buy": 95, "sell": 95}
-        wrap, self.inv_tree = make_tree(f, cols, self.inv_heads, widths,
+        grid = card(f, padx=8, pady=8)
+        grid.pack(fill="both", expand=True)
+        wrap, self.inv_tree = make_tree(grid, cols, self.inv_heads, widths,
                                         {"name": "w", "category": "w", "engine": "w"}, self.rtl)
         wrap.pack(fill="both", expand=True)
-        for c in cols:
-            self.inv_tree.heading(c, command=lambda c=c: self.sort_by(c))
+        for col in cols:
+            self.inv_tree.heading(col, command=lambda col=col: self.sort_by(col))
         self.inv_tree.bind("<Double-1>", lambda e: self.edit_selected())
         self.inv_tree.bind("<Return>", lambda e: self.edit_selected())
         self.inv_tree.bind("<Delete>", lambda e: self.archive_selected())
@@ -69,7 +76,7 @@ class InventoryPage:
         btn(bottom, tr("btn_move"), self.move_selected, "soft").pack(side=self.s1, padx=(0, 6))
         btn(bottom, tr("btn_archive"), self.archive_selected, "soft").pack(side=self.s1, padx=(0, 6))
         self.inv_summary = tk.StringVar()
-        lbl(bottom, "", 10, False, C["muted"], textvariable=self.inv_summary).pack(side=self.s2)
+        lbl(bottom, "", 9, False, C["muted"], textvariable=self.inv_summary).pack(side=self.s2)
         self._update_headings()
 
     def _debounce_search(self):
@@ -93,7 +100,8 @@ class InventoryPage:
             return
         tree = self.inv_tree
         keep = set(tree.selection())
-        tree.delete(*tree.get_children())
+        existing = set(tree.get_children())
+        wanted = set()
         sql, args = ["SELECT * FROM items WHERE 1=1"], []
         if not self.show_archived.get():
             sql.append("AND is_active=1")
@@ -127,14 +135,22 @@ class InventoryPage:
                 tag = ("out",)
             elif r["min_stock"] > 0 and r["quantity"] <= r["min_stock"]:
                 tag = ("low",)
-            tree.insert("", "end", iid=str(r["id"]), tags=tag, values=(
-                r["item_code"], item_name(r), r["category"] or "", r["engine_application"] or "",
-                make_location(r["section"], r["part"]), cond_t(r["condition"]),
-                f'{qty_fmt(r["quantity"])} {unit_t(r["unit"])}',
-                money(r["purchase_price"]), money(r["selling_price"])))
             if r["is_active"]:
                 units += r["quantity"]
                 value += r["quantity"] * r["purchase_price"]
+            iid = str(r["id"])
+            wanted.add(iid)
+            values = (r["item_code"], item_name(r), r["category"] or "", r["engine_application"] or "",
+                      make_location(r["section"], r["part"]), cond_t(r["condition"]),
+                      f'{qty_fmt(r["quantity"])} {unit_t(r["unit"])}',
+                      money(r["purchase_price"]), money(r["selling_price"]))
+            if iid in existing:
+                tree.item(iid, values=values, tags=tag)
+            else:
+                tree.insert("", "end", iid=iid, tags=tag, values=values)
+        stale = existing - wanted
+        if stale:
+            tree.delete(*stale)
         for iid in keep:
             if tree.exists(iid):
                 tree.selection_add(iid)

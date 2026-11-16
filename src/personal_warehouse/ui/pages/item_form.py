@@ -33,7 +33,7 @@ class ItemFormPage:
         body = tk.Frame(f, bg=C["bg"])
         body.pack(fill="both", expand=True)
         formcard = card(body, padx=18, pady=12)
-        formcard.pack(side=self.s1, fill="both", expand=True)
+        formcard.grid(row=0, column=0, sticky="nsew")
         form = tk.Frame(formcard, bg=C["card"])
         form.pack(fill="both", expand=True)
         self.fields = {}
@@ -65,11 +65,21 @@ class ItemFormPage:
                 w.bind("<<ComboboxSelected>>", lambda e: self._update_loc_preview())
                 w.pack(fill="x", pady=(3, 0))
             self.fields[key] = w
-        form.columnconfigure(0, weight=1)
-        form.columnconfigure(1, weight=1)
+        form.columnconfigure(0, weight=1, uniform="item_fields")
+        form.columnconfigure(1, weight=1, uniform="item_fields")
 
         side = card(body, padx=16, pady=14)
-        side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
+        side.grid(row=0, column=1, sticky="nsew", padx=(0, 12) if self.rtl else (12, 0))
+        self._item_form_body = body
+        self._item_form_card = formcard
+        self._item_form_grid = form
+        self._item_form_side = side
+        self._item_form_side_by_side = None
+        self._item_fields_compact = None
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0)
+        body.grid_rowconfigure(0, weight=1)
+        body.bind("<Configure>", self._adapt_item_form, add="+")
         lbl(side, tr("photo_title"), 10, True, C["title"], C["card"], anchor=self.a1).pack(fill="x")
         self.photo_label = tk.Label(side, text=tr("no_photo"), bg=C["empty"], fg=C["muted"], width=28, height=11)
         self.photo_label.pack(pady=10)
@@ -89,6 +99,44 @@ class ItemFormPage:
         btn(actions, tr("btn_print_one"), self.print_current_label, "soft").pack(side=self.s1)
         btn(actions, tr("btn_back"), lambda: self.pages.select(self.inventory_tab), "ghost").pack(side=self.s2)
         self.clear_form()
+
+    def _adapt_item_form(self, event=None):
+        """Reflow the editor and preview panel without squeezing either one."""
+        if not hasattr(self, "_item_form_body"):
+            return
+        width = self._item_form_body.winfo_width()
+        if not isinstance(width, (int, float)) or width <= 1:
+            return
+        side_by_side = width >= 1280
+        if side_by_side != self._item_form_side_by_side:
+            self._item_form_side_by_side = side_by_side
+            if side_by_side:
+                self._item_form_card.grid_configure(row=0, column=0, columnspan=1, sticky="nsew")
+                self._item_form_side.grid_configure(row=0, column=1, columnspan=1, sticky="nsew",
+                    padx=(0, 12) if self.rtl else (12, 0), pady=0)
+                self._item_form_body.grid_columnconfigure(0, weight=1)
+                self._item_form_body.grid_columnconfigure(1, weight=0, minsize=286)
+                self._item_form_body.grid_rowconfigure(0, weight=1)
+                self._item_form_body.grid_rowconfigure(1, weight=0)
+            else:
+                self._item_form_card.grid_configure(row=0, column=0, columnspan=2, sticky="nsew")
+                self._item_form_side.grid_configure(row=1, column=0, columnspan=2, sticky="ew",
+                    padx=0, pady=(12, 0))
+                self._item_form_body.grid_columnconfigure(0, weight=1)
+                self._item_form_body.grid_columnconfigure(1, weight=0, minsize=0)
+                self._item_form_body.grid_rowconfigure(0, weight=0)
+                self._item_form_body.grid_rowconfigure(1, weight=0)
+        fields_compact = width < 760
+        if fields_compact != self._item_fields_compact:
+            self._item_fields_compact = fields_compact
+            for idx, cell in enumerate(self._item_form_grid.winfo_children()):
+                if fields_compact:
+                    cell.grid_configure(row=idx, column=0, columnspan=2, sticky="ew")
+                else:
+                    cell.grid_configure(row=idx // 2, column=idx % 2, columnspan=1, sticky="ew")
+            self._item_form_grid.columnconfigure(0, weight=1, uniform="item_fields")
+            self._item_form_grid.columnconfigure(1, weight=0 if fields_compact else 1,
+                                                 uniform="" if fields_compact else "item_fields")
 
     def _get(self, k):
         w = self.fields[k]
