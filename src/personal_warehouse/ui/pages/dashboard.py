@@ -15,27 +15,64 @@ class DashboardPage:
         f = self.dashboard_tab
         self._page_head(f, tr("dash_title"), tr("dash_sub"))
 
-        # KPI strip: compact white cards with a clear accent and large values.
+        # Four balanced KPI cards, matching the reference's compact metric strip.
         cards = tk.Frame(f, bg=C["bg"])
-        cards.pack(fill="x", pady=(0, 10))
+        cards.pack(fill="x", pady=(0, 12))
         self.metric_vars = {}
         metrics = [("items", "m_items", C["accent"]), ("units", "m_units", C["teal"]),
-                   ("value", "m_value", C["ok"]), ("profit", "m_profit", C["violet"]),
-                   ("alerts", "m_alerts", C["warn"])]
+                   ("value", "m_value", C["violet"]), ("alerts", "m_alerts", C["warn"])]
         for key, title, color in metrics:
             c = card(cards, padx=0, pady=0)
             c.pack(side=self.s1, fill="both", expand=True, padx=4)
             tk.Frame(c, bg=color, height=4).pack(fill="x")
-            inner = tk.Frame(c, bg=C["card"], padx=13, pady=12)
+            inner = tk.Frame(c, bg=C["card"], padx=16, pady=13)
             inner.pack(fill="both", expand=True)
             lbl(inner, tr(title), 9, False, C["muted"], C["card"], anchor=self.a1).pack(fill="x")
             self.metric_vars[key] = tk.StringVar(value="—")
             tk.Label(inner, textvariable=self.metric_vars[key], bg=C["card"], fg=C["title"],
-                     font=fnt(19, True), anchor=self.a1).pack(fill="x", pady=(7, 0))
+                     font=fnt(22, True), anchor=self.a1).pack(fill="x", pady=(7, 0))
 
-        # Quick actions remain available but visually secondary to the data.
+        # Primary content row: stock distribution, risk list, and movement feed.
+        lower = tk.Frame(f, bg=C["bg"])
+        lower.pack(fill="both", expand=True, pady=(2, 0))
+        lower.columnconfigure(0, weight=4, uniform="dash")
+        lower.columnconfigure(1, weight=5, uniform="dash")
+        lower.columnconfigure(2, weight=4, uniform="dash")
+        lower.rowconfigure(0, weight=1)
+
+        def panel(col, title, subtitle=""):
+            c = card(lower, padx=14, pady=13)
+            c.grid(row=0, column=col, sticky="nsew", padx=4, pady=2)
+            head = tk.Frame(c, bg=C["card"])
+            head.pack(fill="x", pady=(0, 10))
+            lbl(head, title, 11, True, C["title"], C["card"], anchor=self.a1).pack(side=self.s1)
+            if subtitle:
+                lbl(head, subtitle, 8, False, C["muted"], C["card"]).pack(side=self.s2)
+            return c
+
+        sections = panel(0, tr("card_sections"), tr("dash_stock_mix"))
+        self.section_canvas = tk.Canvas(sections, bg=C["card"], highlightthickness=0, height=300)
+        self.section_canvas.pack(fill="both", expand=True)
+        self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
+
+        alerts = panel(1, tr("card_alerts"), tr("dash_attention"))
+        w, self.alert_tree = make_tree(
+            alerts, ("name", "loc", "qty", "min"),
+            {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
+            {"name": 170, "loc": 60, "qty": 55, "min": 60}, {"name": "w"}, self.rtl, height=11)
+        w.pack(fill="both", expand=True)
+        self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
+
+        recent = panel(2, tr("card_recent"), tr("dash_latest_activity"))
+        w, self.recent_tree = make_tree(
+            recent, ("time", "name", "type", "qty"),
+            {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
+            {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=11)
+        w.pack(fill="both", expand=True)
+
+        # Quick actions are a compact footer row rather than competing with KPIs.
         qa = tk.Frame(f, bg=C["bg"])
-        qa.pack(fill="x", pady=(2, 8))
+        qa.pack(fill="x", pady=(10, 0))
         for text, cmd, kind in [(tr("qa_add"), self.new_item, "primary"),
                                 (tr("qa_inv"), lambda: self.pages.select(self.inventory_tab), "soft"),
                                 (tr("qa_move"), lambda: self.pages.select(self.movement_tab), "soft"),
@@ -44,40 +81,6 @@ class DashboardPage:
                                 (tr("qa_export"), self.export_excel, "soft"),
                                 (tr("qa_backup"), self.backup_all, "soft")]:
             btn(qa, text, cmd, "soft" if kind == "soft" else kind, padx=11, pady=7).pack(side=self.s1, padx=3)
-
-        # Three information panels mirror the reference layout without inventing
-        # sales/AI capabilities that this warehouse edition does not currently have.
-        lower = tk.Frame(f, bg=C["bg"])
-        lower.pack(fill="both", expand=True, pady=(4, 0))
-        for i in range(3):
-            lower.columnconfigure(i, weight=1, uniform="dash")
-        lower.rowconfigure(0, weight=1)
-
-        def panel(col, title):
-            c = card(lower, padx=14, pady=13)
-            c.grid(row=0, column=col, sticky="nsew", padx=4, pady=2)
-            lbl(c, title, 11, True, C["title"], C["card"], anchor=self.a1).pack(fill="x", pady=(0, 11))
-            return c
-
-        sections = panel(0, tr("card_sections"))
-        self.section_canvas = tk.Canvas(sections, bg=C["card"], highlightthickness=0, height=260)
-        self.section_canvas.pack(fill="both", expand=True)
-        self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
-
-        alerts = panel(1, tr("card_alerts"))
-        w, self.alert_tree = make_tree(
-            alerts, ("name", "loc", "qty", "min"),
-            {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
-            {"name": 170, "loc": 60, "qty": 55, "min": 60}, {"name": "w"}, self.rtl, height=9)
-        w.pack(fill="both", expand=True)
-        self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
-
-        recent = panel(2, tr("card_recent"))
-        w, self.recent_tree = make_tree(
-            recent, ("time", "name", "type", "qty"),
-            {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
-            {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=9)
-        w.pack(fill="both", expand=True)
 
     def print_selected_labels_from_dashboard(self):
         self.pages.select(self.inventory_tab)
@@ -127,7 +130,6 @@ class DashboardPage:
         self.metric_vars["items"].set(str(r["n"]))
         self.metric_vars["units"].set(qty_fmt(r["units"]))
         self.metric_vars["value"].set(money(r["value"]))
-        self.metric_vars["profit"].set(money(r["profit"]))
         self.metric_vars["alerts"].set(str(len(alerts)))
         self._sect_data = sect
         self._draw_sections()
