@@ -13,6 +13,7 @@ def extract(changelog, version):
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
     text = Path(__file__).resolve().parents[1].joinpath("CHANGELOG.md").read_text(encoding="utf-8")
     notes = extract(text, sys.argv[1].lstrip("v"))
     print(notes or f"Release {sys.argv[1]}")
