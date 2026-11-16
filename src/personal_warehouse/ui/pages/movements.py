@@ -49,7 +49,6 @@ class MovementsPage:
         self.mov_info_label = tk.Label(form, textvariable=self.mov_info, bg=C["card"], fg=C["muted"],
                                         font=fnt(10), anchor=self.a1)
         form.bind("<Configure>", self._adapt_movement_form, add="+")
-        self._adapt_movement_form()
         opts = tk.Frame(f, bg=C["bg"])
         opts.pack(fill="x", pady=(14, 8))
         lbl(opts, tr("mv_history"), 12, True, C["title"]).pack(side=self.s1)
@@ -68,7 +67,10 @@ class MovementsPage:
     def _adapt_movement_form(self, event=None):
         if not hasattr(self, "_movement_form"):
             return
-        compact = self._movement_form.winfo_width() < 980
+        width = self._movement_form.winfo_width()
+        if not isinstance(width, (int, float)):
+            return
+        compact = width < 980
         if compact == self._movement_compact:
             return
         self._movement_compact = compact
