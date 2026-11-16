@@ -89,7 +89,6 @@ class DashboardPage:
             self._dashboard_qa_buttons.append(btn(self._dashboard_qa, text, cmd,
                                                   "soft" if kind == "soft" else kind, padx=10, pady=7))
         self._dashboard_qa.bind("<Configure>", self._layout_dashboard_actions, add="+")
-        self._layout_dashboard_actions()
 
     def _adapt_dashboard(self, event=None):
         if not hasattr(self, "_dashboard_lower"):
