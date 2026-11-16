@@ -34,7 +34,8 @@ def make_tree(parent, cols, heads, widths, anchors=None, rtl=False, **kw):
     wrap = tk.Frame(parent, bg=C["card"], highlightbackground=C["line"], highlightthickness=1)
     tree = ttk.Treeview(wrap, columns=cols, show="headings", **kw)
     sb = ttk.Scrollbar(wrap, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=sb.set)
+    hsb = ttk.Scrollbar(wrap, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=sb.set, xscrollcommand=hsb.set)
     flip = {"w": "e", "e": "w"}
     for c in cols:
         tree.heading(c, text=heads[c])
@@ -42,8 +43,9 @@ def make_tree(parent, cols, heads, widths, anchors=None, rtl=False, **kw):
         tree.column(c, width=widths[c], minwidth=50, anchor=flip.get(a, a) if rtl else a)
     if rtl:
         tree.configure(displaycolumns=list(reversed(cols)))
-    tree.pack(side="right" if rtl else "left", fill="both", expand=True)
+    tree.pack(side="top", fill="both", expand=True)
     sb.pack(side="left" if rtl else "right", fill="y")
+    hsb.pack(side="bottom", fill="x")
     tree.tag_configure("odd", background=C["stripe"])
     tree.tag_configure("low", background=C["low"])
     tree.tag_configure("out", background=C["out"])
