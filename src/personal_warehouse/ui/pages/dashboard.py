@@ -14,23 +14,28 @@ class DashboardPage:
     def _build_dashboard(self):
         f = self.dashboard_tab
         self._page_head(f, tr("dash_title"), tr("dash_sub"))
+
+        # KPI strip: compact white cards with a clear accent and large values.
         cards = tk.Frame(f, bg=C["bg"])
-        cards.pack(fill="x")
+        cards.pack(fill="x", pady=(0, 10))
         self.metric_vars = {}
-        for key, title, color in [("items", "m_items", C["accent"]), ("units", "m_units", C["teal"]),
-                                  ("value", "m_value", C["ok"]), ("profit", "m_profit", C["violet"]),
-                                  ("alerts", "m_alerts", C["warn"])]:
-            c = card(cards)
-            c.pack(side=self.s1, fill="x", expand=True, padx=5)
-            tk.Frame(c, bg=color, width=5).pack(side=self.s1, fill="y")
-            inner = tk.Frame(c, bg=C["card"], padx=16, pady=14)
-            inner.pack(side=self.s1, fill="both", expand=True)
-            lbl(inner, tr(title), 10, False, C["muted"], C["card"], anchor=self.a1).pack(fill="x")
+        metrics = [("items", "m_items", C["accent"]), ("units", "m_units", C["teal"]),
+                   ("value", "m_value", C["ok"]), ("profit", "m_profit", C["violet"]),
+                   ("alerts", "m_alerts", C["warn"])]
+        for key, title, color in metrics:
+            c = card(cards, padx=0, pady=0)
+            c.pack(side=self.s1, fill="both", expand=True, padx=4)
+            tk.Frame(c, bg=color, height=4).pack(fill="x")
+            inner = tk.Frame(c, bg=C["card"], padx=13, pady=12)
+            inner.pack(fill="both", expand=True)
+            lbl(inner, tr(title), 9, False, C["muted"], C["card"], anchor=self.a1).pack(fill="x")
             self.metric_vars[key] = tk.StringVar(value="—")
             tk.Label(inner, textvariable=self.metric_vars[key], bg=C["card"], fg=C["title"],
-                     font=fnt(20, True), anchor=self.a1).pack(fill="x", pady=(6, 0))
+                     font=fnt(19, True), anchor=self.a1).pack(fill="x", pady=(7, 0))
+
+        # Quick actions remain available but visually secondary to the data.
         qa = tk.Frame(f, bg=C["bg"])
-        qa.pack(fill="x", pady=(14, 0))
+        qa.pack(fill="x", pady=(2, 8))
         for text, cmd, kind in [(tr("qa_add"), self.new_item, "primary"),
                                 (tr("qa_inv"), lambda: self.pages.select(self.inventory_tab), "soft"),
                                 (tr("qa_move"), lambda: self.pages.select(self.movement_tab), "soft"),
@@ -38,33 +43,38 @@ class DashboardPage:
                                 (tr("qa_labels"), self.print_selected_labels_from_dashboard, "soft"),
                                 (tr("qa_export"), self.export_excel, "soft"),
                                 (tr("qa_backup"), self.backup_all, "soft")]:
-            btn(qa, text, cmd, kind).pack(side=self.s1, padx=4)
+            btn(qa, text, cmd, "soft" if kind == "soft" else kind, padx=11, pady=7).pack(side=self.s1, padx=3)
+
+        # Three information panels mirror the reference layout without inventing
+        # sales/AI capabilities that this warehouse edition does not currently have.
         lower = tk.Frame(f, bg=C["bg"])
-        lower.pack(fill="both", expand=True, pady=(14, 0))
+        lower.pack(fill="both", expand=True, pady=(4, 0))
         for i in range(3):
             lower.columnconfigure(i, weight=1, uniform="dash")
         lower.rowconfigure(0, weight=1)
 
         def panel(col, title):
-            c = card(lower, padx=14, pady=12)
-            c.grid(row=0, column=col, sticky="nsew", padx=5)
-            lbl(c, title, 10, True, C["title"], C["card"], anchor=self.a1).pack(fill="x", pady=(0, 8))
+            c = card(lower, padx=14, pady=13)
+            c.grid(row=0, column=col, sticky="nsew", padx=4, pady=2)
+            lbl(c, title, 11, True, C["title"], C["card"], anchor=self.a1).pack(fill="x", pady=(0, 11))
             return c
 
-        left = panel(0, tr("card_sections"))
-        self.section_canvas = tk.Canvas(left, bg=C["card"], highlightthickness=0, height=260)
+        sections = panel(0, tr("card_sections"))
+        self.section_canvas = tk.Canvas(sections, bg=C["card"], highlightthickness=0, height=260)
         self.section_canvas.pack(fill="both", expand=True)
         self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
-        mid = panel(1, tr("card_alerts"))
+
+        alerts = panel(1, tr("card_alerts"))
         w, self.alert_tree = make_tree(
-            mid, ("name", "loc", "qty", "min"),
+            alerts, ("name", "loc", "qty", "min"),
             {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
             {"name": 170, "loc": 60, "qty": 55, "min": 60}, {"name": "w"}, self.rtl, height=9)
         w.pack(fill="both", expand=True)
         self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
-        right = panel(2, tr("card_recent"))
+
+        recent = panel(2, tr("card_recent"))
         w, self.recent_tree = make_tree(
-            right, ("time", "name", "type", "qty"),
+            recent, ("time", "name", "type", "qty"),
             {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
             {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=9)
         w.pack(fill="both", expand=True)
