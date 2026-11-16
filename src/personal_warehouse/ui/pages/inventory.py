@@ -29,18 +29,18 @@ class InventoryPage:
         search.pack(fill="x")
         lbl(search, tr("lbl_search"), 9, True, C["muted"], C["card"]).pack(side=self.s1, padx=(0, 8))
         self.search_var = tk.StringVar()
-        self.search_entry = ttk.Entry(search, textvariable=self.search_var, width=34, justify=self.just)
+        self.search_entry = ttk.Entry(search, textvariable=self.search_var, width=22, justify=self.just)
         self.search_entry.pack(side=self.s1, padx=(0, 6), ipady=2)
         self.search_var.trace_add("write", lambda *a: self._debounce_search())
         btn(search, "✕", lambda: self.search_var.set(""), "ghost", padx=9, pady=6).pack(side=self.s1, padx=(0, 12))
         self.loc_filter = tk.StringVar(value=tr("all_locations"))
         loc_values = [tr("all_locations")] + [tr("section_n", s) for s in SECTIONS] + \
                      [make_location(s, p) for s in SECTIONS for p in PARTS]
-        cb = ttk.Combobox(search, textvariable=self.loc_filter, state="readonly", width=17, values=loc_values,
+        cb = ttk.Combobox(search, textvariable=self.loc_filter, state="readonly", width=13, values=loc_values,
                           justify=self.just)
         cb.pack(side=self.s1, padx=5)
         self.cond_filter = tk.StringVar(value=tr("all_conditions"))
-        cc = ttk.Combobox(search, textvariable=self.cond_filter, state="readonly", width=17, justify=self.just,
+        cc = ttk.Combobox(search, textvariable=self.cond_filter, state="readonly", width=13, justify=self.just,
                           values=[tr("all_conditions")] + [cond_t(c) for c in CONDITIONS])
         cc.pack(side=self.s1, padx=5)
         for w in (cb, cc):
@@ -135,6 +135,9 @@ class InventoryPage:
                 tag = ("out",)
             elif r["min_stock"] > 0 and r["quantity"] <= r["min_stock"]:
                 tag = ("low",)
+            if r["is_active"]:
+                units += r["quantity"]
+                value += r["quantity"] * r["purchase_price"]
             iid = str(r["id"])
             wanted.add(iid)
             values = (r["item_code"], item_name(r), r["category"] or "", r["engine_application"] or "",
@@ -148,9 +151,6 @@ class InventoryPage:
         stale = existing - wanted
         if stale:
             tree.delete(*stale)
-            if r["is_active"]:
-                units += r["quantity"]
-                value += r["quantity"] * r["purchase_price"]
         for iid in keep:
             if tree.exists(iid):
                 tree.selection_add(iid)
