@@ -93,7 +93,10 @@ class DashboardPage:
     def _adapt_dashboard(self, event=None):
         if not hasattr(self, "_dashboard_lower"):
             return
-        compact = self._dashboard_lower.winfo_width() < 1220
+        width = self._dashboard_lower.winfo_width()
+        if not isinstance(width, (int, float)):
+            return
+        compact = width < 1220
         if compact == self._dashboard_compact:
             return
         self._dashboard_compact = compact
@@ -115,6 +118,8 @@ class DashboardPage:
         if not hasattr(self, "_dashboard_qa_buttons"):
             return
         width = self._dashboard_qa.winfo_width()
+        if not isinstance(width, (int, float)):
+            return
         cols = 3 if width < 850 else (5 if width < 1180 else 7)
         for i, button in enumerate(self._dashboard_qa_buttons):
             button.grid(row=i // cols, column=i % cols, sticky="ew", padx=3, pady=2)
