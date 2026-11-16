@@ -65,11 +65,16 @@ class ItemFormPage:
                 w.bind("<<ComboboxSelected>>", lambda e: self._update_loc_preview())
                 w.pack(fill="x", pady=(3, 0))
             self.fields[key] = w
-        form.columnconfigure(0, weight=1)
-        form.columnconfigure(1, weight=1)
+        form.columnconfigure(0, weight=1, uniform="item_fields")
+        form.columnconfigure(1, weight=1, uniform="item_fields")
 
         side = card(body, padx=16, pady=14)
         side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
+        self._item_form_body = body
+        self._item_form_grid = form
+        self._item_form_side = side
+        self._item_form_compact = None
+        body.bind("<Configure>", self._adapt_item_form, add="+")
         lbl(side, tr("photo_title"), 10, True, C["title"], C["card"], anchor=self.a1).pack(fill="x")
         self.photo_label = tk.Label(side, text=tr("no_photo"), bg=C["empty"], fg=C["muted"], width=28, height=11)
         self.photo_label.pack(pady=10)
@@ -89,6 +94,28 @@ class ItemFormPage:
         btn(actions, tr("btn_print_one"), self.print_current_label, "soft").pack(side=self.s1)
         btn(actions, tr("btn_back"), lambda: self.pages.select(self.inventory_tab), "ghost").pack(side=self.s2)
         self.clear_form()
+
+    def _adapt_item_form(self, event=None):
+        if not hasattr(self, "_item_form_body"):
+            return
+        compact = self._item_form_body.winfo_width() < 920
+        if compact == self._item_form_compact:
+            return
+        self._item_form_compact = compact
+        if compact:
+            self._item_form_side.pack_forget()
+            self._item_form_side.pack(side="bottom", fill="x", pady=(10, 0))
+            for cell in self._item_form_grid.winfo_children():
+                cell.grid_configure(column=0, columnspan=2, sticky="ew")
+            self._item_form_grid.columnconfigure(0, weight=1, uniform="")
+            self._item_form_grid.columnconfigure(1, weight=0, uniform="")
+        else:
+            self._item_form_side.pack_forget()
+            self._item_form_side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
+            for idx, cell in enumerate(self._item_form_grid.winfo_children()):
+                cell.grid_configure(row=idx // 2, column=idx % 2, columnspan=1, sticky="ew")
+            self._item_form_grid.columnconfigure(0, weight=1, uniform="item_fields")
+            self._item_form_grid.columnconfigure(1, weight=1, uniform="item_fields")
 
     def _get(self, k):
         w = self.fields[k]
