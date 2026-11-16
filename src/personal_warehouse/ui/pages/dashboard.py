@@ -50,12 +50,12 @@ class DashboardPage:
                 lbl(head, subtitle, 8, False, C["muted"], C["card"]).pack(side=self.s2)
             return c
 
-        sections = panel(0, tr("card_sections"), tr("dash_stock_mix"))
+        sections = panel(0, tr("card_sections"))
         self.section_canvas = tk.Canvas(sections, bg=C["card"], highlightthickness=0, height=300)
         self.section_canvas.pack(fill="both", expand=True)
         self.section_canvas.bind("<Configure>", lambda e: self._draw_sections())
 
-        alerts = panel(1, tr("card_alerts"), tr("dash_attention"))
+        alerts = panel(1, tr("card_alerts"))
         w, self.alert_tree = make_tree(
             alerts, ("name", "loc", "qty", "min"),
             {"name": tr("col_item"), "loc": tr("col_loc"), "qty": tr("col_qty"), "min": tr("col_min")},
@@ -63,7 +63,7 @@ class DashboardPage:
         w.pack(fill="both", expand=True)
         self.alert_tree.bind("<Double-1>", lambda e: self._open_from_tree(self.alert_tree))
 
-        recent = panel(2, tr("card_recent"), tr("dash_latest_activity"))
+        recent = panel(2, tr("card_recent"))
         w, self.recent_tree = make_tree(
             recent, ("time", "name", "type", "qty"),
             {"time": tr("col_time"), "name": tr("col_item"), "type": tr("col_type"), "qty": tr("col_qty")},
