@@ -47,7 +47,7 @@ class ScanPage:
         body = tk.Frame(f, bg=C["bg"])
         body.pack(fill="both", expand=True, pady=12)
         main = card(body, padx=18, pady=16)
-        main.pack(side=self.s1, fill="both", expand=True)
+        main.grid(row=0, column=0, sticky="nsew")
         self.scan_head = tk.StringVar(value=tr("scan_wait"))
         tk.Label(main, textvariable=self.scan_head, bg=C["card"], fg=C["title"], font=fnt(16, True),
                  anchor=self.a1, justify=self.just, wraplength=760).pack(fill="x")
@@ -56,7 +56,15 @@ class ScanPage:
         self.scan_grid = tk.Frame(main, bg=C["card"])
         self.scan_grid.pack(fill="both", expand=True, pady=(10, 0))
         side = card(body, padx=16, pady=16)
-        side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
+        side.grid(row=0, column=1, sticky="nsew", padx=(0, 12) if self.rtl else (12, 0))
+        self._scan_body = body
+        self._scan_main_card = main
+        self._scan_side_card = side
+        self._scan_side_by_side = None
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0)
+        body.grid_rowconfigure(0, weight=1)
+        body.bind("<Configure>", self._adapt_scan_layout, add="+")
         self.scan_photo = tk.Label(side, text=tr("no_photo"), bg=C["empty"], fg=C["muted"], width=28, height=11)
         self.scan_photo.pack(pady=(0, 12))
         self.scan_btns = {}
@@ -65,6 +73,34 @@ class ScanPage:
             b = btn(side, text, lambda k=key: self._scan_do(k), kind, state="disabled")
             b.pack(fill="x", pady=3)
             self.scan_btns[key] = b
+
+    def _adapt_scan_layout(self, event=None):
+        """Keep scan details readable by moving the preview card below on narrow windows."""
+        if not hasattr(self, "_scan_body"):
+            return
+        width = self._scan_body.winfo_width()
+        if not isinstance(width, (int, float)) or width <= 1:
+            return
+        side_by_side = width >= 1200
+        if side_by_side == self._scan_side_by_side:
+            return
+        self._scan_side_by_side = side_by_side
+        if side_by_side:
+            self._scan_main_card.grid_configure(row=0, column=0, columnspan=1, sticky="nsew")
+            self._scan_side_card.grid_configure(row=0, column=1, columnspan=1, sticky="nsew",
+                padx=(0, 12) if self.rtl else (12, 0), pady=0)
+            self._scan_body.grid_columnconfigure(0, weight=1)
+            self._scan_body.grid_columnconfigure(1, weight=0, minsize=286)
+            self._scan_body.grid_rowconfigure(0, weight=1)
+            self._scan_body.grid_rowconfigure(1, weight=0)
+        else:
+            self._scan_main_card.grid_configure(row=0, column=0, columnspan=2, sticky="nsew")
+            self._scan_side_card.grid_configure(row=1, column=0, columnspan=2, sticky="ew",
+                padx=0, pady=(12, 0))
+            self._scan_body.grid_columnconfigure(0, weight=1)
+            self._scan_body.grid_columnconfigure(1, weight=0, minsize=0)
+            self._scan_body.grid_rowconfigure(0, weight=1)
+            self._scan_body.grid_rowconfigure(1, weight=0)
 
     def _scan_mode_key(self):
         lab = self.scan_mode.get()
