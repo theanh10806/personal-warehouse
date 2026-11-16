@@ -1,0 +1,16 @@
+# Changelog
+
+Định dạng theo [Keep a Changelog](https://keepachangelog.com/). Nội dung mục của mỗi phiên bản
+được dùng làm ghi chú phát hành trên GitHub (và hiển thị trong hộp thoại cập nhật của app).
+
+## [3.0.0] - 2026-11-16
+### Added
+- Dự án hóa: package `personal_warehouse`, cài bằng pip, file `.exe` và bộ cài Windows.
+- Tự kiểm tra bản cập nhật qua GitHub Releases (có thể tắt trong Cài đặt).
+- Biến môi trường `PW_DATA_DIR` để đổi thư mục dữ liệu.
+- Bộ kiểm thử tự động và CI.
+
+### Changed
+- Tách mã nguồn thành các module theo chức năng: `core/` (dữ liệu, tồn kho, tem, xuất file), `i18n/` (bản dịch theo
+  tính năng), `ui/` (giao diện, mỗi trang một file). Hành vi giữ nguyên.
+- `save_settings` giữ nguyên các khóa cài đặt khác khi ghi file.

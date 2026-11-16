@@ -1,0 +1,52 @@
+name: Release
+
+# Push a tag such as v3.1.0 and this builds the Windows installer and publishes it
+# as a GitHub Release. The app's update check reads that release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tag must match the version in the code
+        shell: pwsh
+        run: |
+          python -m pip install -e ".[dev]"
+          $v = python -c "from personal_warehouse import __version__; print(__version__)"
+          if ("v$v" -ne "${{ github.ref_name }}") {
+            Write-Error "Tag ${{ github.ref_name }} does not match __version__ $v"
+            exit 1
+          }
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Make sure Inno Setup is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build app and installer
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1
+
+      - name: Release notes from CHANGELOG
+        shell: pwsh
+        run: python packaging/extract_notes.py "${{ github.ref_name }}" | Out-File -Encoding utf8 notes.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/PersonalWarehouse-Setup-*.exe
+          body_path: notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
