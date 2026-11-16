@@ -70,6 +70,11 @@ class DashboardPage:
             {"time": 105, "name": 140, "type": 80, "qty": 55}, {"name": "w"}, self.rtl, height=11)
         w.pack(fill="both", expand=True)
 
+        self._dashboard_panels = [sections, alerts, recent]
+        self._dashboard_lower = lower
+        self._dashboard_compact = None
+        lower.bind("<Configure>", self._adapt_dashboard, add="+")
+
         # Quick actions are a compact footer row rather than competing with KPIs.
         qa = tk.Frame(f, bg=C["bg"])
         qa.pack(fill="x", pady=(10, 0))
@@ -81,6 +86,27 @@ class DashboardPage:
                                 (tr("qa_export"), self.export_excel, "soft"),
                                 (tr("qa_backup"), self.backup_all, "soft")]:
             btn(qa, text, cmd, "soft" if kind == "soft" else kind, padx=11, pady=7).pack(side=self.s1, padx=3)
+
+    def _adapt_dashboard(self, event=None):
+        if not hasattr(self, "_dashboard_lower"):
+            return
+        compact = self._dashboard_lower.winfo_width() < 1080
+        if compact == self._dashboard_compact:
+            return
+        self._dashboard_compact = compact
+        if compact:
+            for col in range(3):
+                self._dashboard_lower.columnconfigure(col, weight=1, uniform="")
+            for row, panel in enumerate(self._dashboard_panels):
+                panel.grid_configure(row=row, column=0, columnspan=3, sticky="nsew")
+                self._dashboard_lower.rowconfigure(row, weight=1)
+        else:
+            for row in range(3):
+                self._dashboard_lower.rowconfigure(row, weight=0)
+            self._dashboard_lower.rowconfigure(0, weight=1)
+            for col, panel in enumerate(self._dashboard_panels):
+                panel.grid_configure(row=0, column=col, columnspan=1, sticky="nsew")
+                self._dashboard_lower.columnconfigure(col, weight=(4, 5, 4)[col], uniform="dash")
 
     def print_selected_labels_from_dashboard(self):
         self.pages.select(self.inventory_tab)
