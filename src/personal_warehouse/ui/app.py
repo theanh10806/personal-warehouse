@@ -148,7 +148,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         tk.Label(brand, text="◆", bg=C["accent"], fg="#FFFFFF", font=fnt(17, True),
                  width=2, padx=3, pady=3).pack(side=self.s1, padx=(0, 9))
         tk.Label(brand, text=tr("app_name"), bg=C["side"], fg=C["title"],
-                 font=fnt(14, True), anchor=self.a1).pack(side=self.s1, fill="x")
+                 font=fnt(12, True), anchor=self.a1, justify=self.just, wraplength=138).pack(side=self.s1, fill="x", expand=True)
         tk.Label(head, text=tr("brand_sub"), bg=C["side"], fg=C["muted"], font=fnt(9),
                  anchor=self.a1).pack(fill="x", pady=(7, 0))
         self.nav_btns = {}
@@ -159,7 +159,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
             frame = getattr(self, f"{key}_tab")
             b = tk.Button(side, text=f"  {icon}    {tr(label)}", anchor=self.a1, relief="flat", bd=0,
                           bg=C["side"], fg=C["side_ink"], activebackground=C["side_hov"],
-                          activeforeground=C["title"], font=fnt(11), padx=17, pady=12, cursor="hand2",
+                          activeforeground=C["title"], font=fnt(10), padx=10, pady=10, cursor="hand2", wraplength=158, justify=self.just,
                           command=lambda fr=frame: self._goto(fr))
             b.pack(fill="x", padx=12, pady=3)
             b.bind("<Enter>", lambda e, b=b, f=frame: b.configure(bg=C["side_hov"]) if self.pages.current is not f else None)
@@ -168,7 +168,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         foot = tk.Frame(side, bg=C["side"], padx=14, pady=16)
         foot.pack(side="bottom", fill="x")
         tk.Label(foot, text=tr("nav_hint"), bg=C["side"], fg=C["muted"], font=fnt(8),
-                 wraplength=200, justify=self.just, anchor=self.a1).pack(fill="x", pady=(0, 10))
+                 wraplength=166, justify=self.just, anchor=self.a1).pack(fill="x", pady=(0, 10))
         row = tk.Frame(foot, bg=C["side"])
         row.pack(fill="x")
         for code, text in (("vi", "VI"), ("en", "EN"), ("ar", "ع")):
