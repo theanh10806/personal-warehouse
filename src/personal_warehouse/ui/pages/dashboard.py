@@ -76,8 +76,9 @@ class DashboardPage:
         lower.bind("<Configure>", self._adapt_dashboard, add="+")
 
         # Quick actions are a compact footer row rather than competing with KPIs.
-        qa = tk.Frame(f, bg=C["bg"])
-        qa.pack(fill="x", pady=(10, 0))
+        self._dashboard_qa = tk.Frame(f, bg=C["bg"])
+        self._dashboard_qa.pack(fill="x", pady=(10, 0))
+        self._dashboard_qa_buttons = []
         for text, cmd, kind in [(tr("qa_add"), self.new_item, "primary"),
                                 (tr("qa_inv"), lambda: self.pages.select(self.inventory_tab), "soft"),
                                 (tr("qa_move"), lambda: self.pages.select(self.movement_tab), "soft"),
@@ -85,12 +86,15 @@ class DashboardPage:
                                 (tr("qa_labels"), self.print_selected_labels_from_dashboard, "soft"),
                                 (tr("qa_export"), self.export_excel, "soft"),
                                 (tr("qa_backup"), self.backup_all, "soft")]:
-            btn(qa, text, cmd, "soft" if kind == "soft" else kind, padx=11, pady=7).pack(side=self.s1, padx=3)
+            self._dashboard_qa_buttons.append(btn(self._dashboard_qa, text, cmd,
+                                                  "soft" if kind == "soft" else kind, padx=10, pady=7))
+        self._dashboard_qa.bind("<Configure>", self._layout_dashboard_actions, add="+")
+        self._layout_dashboard_actions()
 
     def _adapt_dashboard(self, event=None):
         if not hasattr(self, "_dashboard_lower"):
             return
-        compact = self._dashboard_lower.winfo_width() < 1080
+        compact = self._dashboard_lower.winfo_width() < 1220
         if compact == self._dashboard_compact:
             return
         self._dashboard_compact = compact
@@ -107,6 +111,16 @@ class DashboardPage:
             for col, panel in enumerate(self._dashboard_panels):
                 panel.grid_configure(row=0, column=col, columnspan=1, sticky="nsew")
                 self._dashboard_lower.columnconfigure(col, weight=(4, 5, 4)[col], uniform="dash")
+
+    def _layout_dashboard_actions(self, event=None):
+        if not hasattr(self, "_dashboard_qa_buttons"):
+            return
+        width = self._dashboard_qa.winfo_width()
+        cols = 3 if width < 850 else (5 if width < 1180 else 7)
+        for i, button in enumerate(self._dashboard_qa_buttons):
+            button.grid(row=i // cols, column=i % cols, sticky="ew", padx=3, pady=2)
+        for col in range(cols):
+            self._dashboard_qa.columnconfigure(col, weight=1)
 
     def print_selected_labels_from_dashboard(self):
         self.pages.select(self.inventory_tab)
