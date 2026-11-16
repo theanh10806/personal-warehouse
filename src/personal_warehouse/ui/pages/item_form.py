@@ -98,7 +98,7 @@ class ItemFormPage:
     def _adapt_item_form(self, event=None):
         if not hasattr(self, "_item_form_body"):
             return
-        compact = self._item_form_body.winfo_width() < 920
+        compact = self._item_form_body.winfo_width() < 1160
         if compact == self._item_form_compact:
             return
         self._item_form_compact = compact
