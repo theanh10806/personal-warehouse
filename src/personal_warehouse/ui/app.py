@@ -115,7 +115,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
     def _build(self):
         self.pages = Pages(self._nav_highlight)
         self.nb = self.pages                                  # compatibility name
-        side = tk.Frame(self, bg=C["side"], width=236)
+        side = tk.Frame(self, bg=C["side"], width=236, highlightbackground=C["line"], highlightthickness=1)
         side.pack(side=self.s1, fill="y")
         side.pack_propagate(False)
         main = tk.Frame(self, bg=C["bg"])
@@ -141,42 +141,45 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         self.pages.select(self.dashboard_tab)
 
     def _build_sidebar(self, side):
-        head = tk.Frame(side, bg=C["side"], padx=20, pady=22)
+        head = tk.Frame(side, bg=C["side"], padx=20, pady=24)
         head.pack(fill="x")
-        tk.Label(head, text="▣  WAREHOUSE", bg=C["side"], fg="#FFFFFF", font=fnt(16, True),
-                 anchor=self.a1).pack(fill="x")
-        tk.Label(head, text=tr("brand_sub"), bg=C["side"], fg=C["side_ink"], font=fnt(9),
-                 anchor=self.a1).pack(fill="x", pady=(3, 0))
+        brand = tk.Frame(head, bg=C["side"])
+        brand.pack(fill="x")
+        tk.Label(brand, text="◆", bg=C["accent"], fg="#FFFFFF", font=fnt(17, True),
+                 width=2, padx=3, pady=3).pack(side=self.s1, padx=(0, 9))
+        tk.Label(brand, text=tr("app_name"), bg=C["side"], fg=C["title"],
+                 font=fnt(14, True), anchor=self.a1).pack(side=self.s1, fill="x")
+        tk.Label(head, text=tr("brand_sub"), bg=C["side"], fg=C["muted"], font=fnt(9),
+                 anchor=self.a1).pack(fill="x", pady=(7, 0))
         self.nav_btns = {}
-        nav = [("dashboard", "▦", "nav_dashboard"), ("inventory", "☰", "nav_inventory"),
-               ("item", "✎", "nav_item"), ("movement", "⇄", "nav_move"), ("scan", "⌖", "nav_scan"),
-               ("locations", "◫", "nav_map"), ("settings", "⚙", "nav_settings")]
+        nav = [("dashboard", "▦", "nav_dashboard"), ("inventory", "▤", "nav_inventory"),
+               ("item", "＋", "nav_item"), ("movement", "⇄", "nav_move"), ("scan", "⌕", "nav_scan"),
+               ("locations", "▦", "nav_map"), ("settings", "⚙", "nav_settings")]
         for key, icon, label in nav:
             frame = getattr(self, f"{key}_tab")
-            b = tk.Button(side, text=f"  {icon}   {tr(label)}", anchor=self.a1, relief="flat", bd=0,
+            b = tk.Button(side, text=f"  {icon}    {tr(label)}", anchor=self.a1, relief="flat", bd=0,
                           bg=C["side"], fg=C["side_ink"], activebackground=C["side_hov"],
-                          activeforeground="#FFFFFF", font=fnt(11), padx=18, pady=11, cursor="hand2",
+                          activeforeground=C["title"], font=fnt(11), padx=17, pady=12, cursor="hand2",
                           command=lambda fr=frame: self._goto(fr))
-            b.pack(fill="x", padx=10, pady=2)
+            b.pack(fill="x", padx=12, pady=3)
             b.bind("<Enter>", lambda e, b=b, f=frame: b.configure(bg=C["side_hov"]) if self.pages.current is not f else None)
             b.bind("<Leave>", lambda e, b=b, f=frame: b.configure(bg=C["side"]) if self.pages.current is not f else None)
             self.nav_btns[frame] = b
-        # language + theme switch at the bottom
-        foot = tk.Frame(side, bg=C["side"], padx=14, pady=14)
+        foot = tk.Frame(side, bg=C["side"], padx=14, pady=16)
         foot.pack(side="bottom", fill="x")
-        tk.Label(foot, text=tr("nav_hint"), bg=C["side"], fg=C["side_ink"], font=fnt(8), wraplength=200,
-                 justify=self.just, anchor=self.a1).pack(fill="x", pady=(0, 10))
+        tk.Label(foot, text=tr("nav_hint"), bg=C["side"], fg=C["muted"], font=fnt(8),
+                 wraplength=200, justify=self.just, anchor=self.a1).pack(fill="x", pady=(0, 10))
         row = tk.Frame(foot, bg=C["side"])
         row.pack(fill="x")
         for code, text in (("vi", "VI"), ("en", "EN"), ("ar", "ع")):
             on = code == current_lang()
-            tk.Button(row, text=text, relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
-                      bg=C["side_act"] if on else C["side_hov"], fg="#FFFFFF" if on else C["side_ink"],
-                      activebackground=C["accent_d"], activeforeground="#FFFFFF", font=fnt(10, True),
-                      command=lambda c=code: self.set_language(c)).pack(side=self.s1, padx=(0, 6))
-        tk.Button(row, text="☾" if current_theme() == "light" else "☀", relief="flat", bd=0, cursor="hand2", padx=10, pady=5,
-                  bg=C["side_hov"], fg="#FFFFFF", activebackground=C["accent_d"], activeforeground="#FFFFFF",
-                  font=fnt(11, True),
+            tk.Button(row, text=text, relief="flat", bd=0, cursor="hand2", padx=9, pady=6,
+                      bg=C["side_act"] if on else C["head"], fg=C["accent"] if on else C["side_ink"],
+                      activebackground=C["accent"], activeforeground="#FFFFFF", font=fnt(9, True),
+                      command=lambda c=code: self.set_language(c)).pack(side=self.s1, padx=(0, 5))
+        tk.Button(row, text="☾" if current_theme() == "light" else "☀", relief="flat", bd=0,
+                  cursor="hand2", padx=10, pady=5, bg=C["head"], fg=C["side_ink"],
+                  activebackground=C["accent"], activeforeground="#FFFFFF", font=fnt(11, True),
                   command=lambda: self.change_theme("dark" if current_theme() == "light" else "light")).pack(side=self.s2)
 
     def _goto(self, frame):
@@ -185,7 +188,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
     def _nav_highlight(self, frame):
         for fr, b in self.nav_btns.items():
             on = fr is frame
-            b.configure(bg=C["side_act"] if on else C["side"], fg="#FFFFFF" if on else C["side_ink"],
+            b.configure(bg=C["side_act"] if on else C["side"], fg=C["accent"] if on else C["side_ink"],
                         font=fnt(11, on))
 
     def _bind_keys(self):
