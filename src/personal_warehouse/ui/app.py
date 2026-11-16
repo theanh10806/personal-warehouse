@@ -29,8 +29,8 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
     def __init__(self):
         super().__init__()
         pick_font()
-        self.geometry("1400x860")
-        self.minsize(1150, 720)
+        self.geometry("1280x800")
+        self.minsize(820, 560)
         self._status_job = self._search_job = self._scan_job = None
         self._bt = self._upd = None
         self.rtl = False
@@ -115,7 +115,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
     def _build(self):
         self.pages = Pages(self._nav_highlight)
         self.nb = self.pages                                  # compatibility name
-        side = tk.Frame(self, bg=C["side"], width=236, highlightbackground=C["line"], highlightthickness=1)
+        side = tk.Frame(self, bg=C["side"], width=196, highlightbackground=C["line"], highlightthickness=1)
         side.pack(side=self.s1, fill="y")
         side.pack_propagate(False)
         main = tk.Frame(self, bg=C["bg"])
@@ -129,7 +129,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
 
         names = ["dashboard", "inventory", "item", "movement", "scan", "locations", "settings"]
         for n in names:
-            setattr(self, f"{n}_tab", tk.Frame(self.content, bg=C["bg"], padx=26, pady=18))
+            setattr(self, f"{n}_tab", tk.Frame(self.content, bg=C["bg"], padx=14, pady=14))
         self._build_sidebar(side)
         self._build_dashboard()
         self._build_inventory()
