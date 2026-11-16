@@ -105,8 +105,8 @@ class ItemFormPage:
         if compact:
             self._item_form_side.pack_forget()
             self._item_form_side.pack(side="bottom", fill="x", pady=(10, 0))
-            for cell in self._item_form_grid.winfo_children():
-                cell.grid_configure(column=0, columnspan=2, sticky="ew")
+            for idx, cell in enumerate(self._item_form_grid.winfo_children()):
+                cell.grid_configure(row=idx, column=0, columnspan=2, sticky="ew")
             self._item_form_grid.columnconfigure(0, weight=1, uniform="")
             self._item_form_grid.columnconfigure(1, weight=0, uniform="")
         else:
