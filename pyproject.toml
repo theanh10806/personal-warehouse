@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-warehouse"
+dynamic = ["version"]
+description = "Offline inventory manager (Tkinter + SQLite) - Tiếng Việt / English / العربية"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Personal Warehouse contributors" }]
+keywords = ["inventory", "warehouse", "tkinter", "sqlite", "barcode", "qr"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Environment :: Win32 (MS Windows)",
+    "Topic :: Office/Business",
+]
+
+[project.optional-dependencies]
+excel = ["openpyxl"]
+images = ["pillow"]
+qr = ["qrcode[pil]"]
+scan = ["opencv-python"]
+web = ["pywebview"]
+all = ["pywebview", "openpyxl", "pillow", "qrcode[pil]", "opencv-python"]
+dev = ["pytest", "pyinstaller"]
+
+[project.gui-scripts]
+personal-warehouse = "personal_warehouse.main:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "personal_warehouse.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+personal_warehouse = ["webui/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
