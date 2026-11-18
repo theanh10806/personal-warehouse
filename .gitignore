@@ -13,3 +13,4 @@ Output/
 # never commit real warehouse data
 *.db
 settings.json
+.pytest_tmp/

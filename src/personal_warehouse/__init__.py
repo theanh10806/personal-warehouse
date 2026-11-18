@@ -1,6 +1,6 @@
 """Personal Warehouse - offline inventory manager."""
 
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 # GitHub "owner/repo" that publishes the releases. Change this once you have created
 # your repository; the in-app update check stays disabled while it is the placeholder.

@@ -108,11 +108,7 @@ class FakeCanvas:
 class FakeTk:
     """Main window stand-in. Only real Tk methods exist; anything else is an AttributeError on purpose."""
     _ALLOWED = ("title geometry minsize configure cget protocol mainloop bell update update_idletasks "
-<<<<<<< HEAD
                 "wait_window bind bind_all option_add focus_set destroy after_cancel").split()
-=======
-                "wait_window bind option_add focus_set destroy after_cancel").split()
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
     def __init__(self, *a, **k):
         self.scheduled = []
@@ -127,7 +123,6 @@ class FakeTk:
     def winfo_width(self):
         return 1000
 
-<<<<<<< HEAD
     def winfo_screenwidth(self):
         return 1920
 
@@ -137,8 +132,6 @@ class FakeTk:
     def winfo_fpixels(self, spec):
         return 96.0
 
-=======
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     def __getattr__(self, name):
         if name in self._ALLOWED:
             return mock.MagicMock(name=name)

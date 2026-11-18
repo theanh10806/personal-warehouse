@@ -14,11 +14,7 @@ from personal_warehouse.core.scanning import decode_codes
 from personal_warehouse.core.stock import apply_movement, find_item
 from personal_warehouse.i18n import cond_t, mv_t, tr, unit_t
 from personal_warehouse.ui.imaging import Image, ImageTk
-<<<<<<< HEAD
 from personal_warehouse.ui.theme import C, fnt, px
-=======
-from personal_warehouse.ui.theme import C, fnt
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 from personal_warehouse.ui.widgets import btn, card, lbl
 
 
@@ -31,7 +27,6 @@ class ScanPage:
         row = tk.Frame(top, bg=C["card"])
         row.pack(fill="x")
         self.scan_var = tk.StringVar()
-<<<<<<< HEAD
         self.scan_entry = ttk.Entry(row, textvariable=self.scan_var, font=fnt(14), width=10, justify=self.just)
         self.scan_entry.bind("<Return>", self._scan_enter)
         scan_btns = tk.Frame(row, bg=C["card"])
@@ -40,21 +35,12 @@ class ScanPage:
         btn(scan_btns, tr("scan_image"), self.scan_from_image, "soft").pack(side=self.s1)
         self._scan_row, self._scan_btns_frame, self._scan_stacked = row, scan_btns, None
         row.bind("<Configure>", self._adapt_scan_row, add="+")
-=======
-        self.scan_entry = ttk.Entry(row, textvariable=self.scan_var, font=fnt(14), width=34, justify=self.just)
-        self.scan_entry.pack(side=self.s1, ipady=5)
-        self.scan_entry.bind("<Return>", self._scan_enter)
-        btn(row, tr("scan_lookup_btn"), self._scan_flush, "primary").pack(side=self.s1, padx=8)
-        btn(row, tr("scan_camera"), self.camera_scan, "soft").pack(side=self.s1)
-        btn(row, tr("scan_image"), self.scan_from_image, "soft").pack(side=self.s1, padx=8)
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         row2 = tk.Frame(top, bg=C["card"])
         row2.pack(fill="x", pady=(12, 0))
         lbl(row2, tr("scan_mode"), 10, False, C["muted"], C["card"]).pack(side=self.s1)
         self.scan_mode = tk.StringVar(value=tr("scan_lookup"))
         ttk.Combobox(row2, textvariable=self.scan_mode, state="readonly", width=16, justify=self.just,
                      values=[tr("scan_lookup"), mv_t("Stock In"), mv_t("Stock Out")]).pack(side=self.s1, padx=8)
-<<<<<<< HEAD
         lbl(row2, tr("scan_qtyper"), 10, False, C["muted"], C["card"]).pack(side=self.s1, padx=self.pad(12, 0))
         self.scan_qty = tk.StringVar(value="1")
         ttk.Spinbox(row2, from_=1, to=9999, textvariable=self.scan_qty, width=7, justify=self.just).pack(side=self.s1, padx=8)
@@ -62,17 +48,10 @@ class ScanPage:
         hint.pack(fill="x", pady=(8, 0))
         top.bind("<Configure>", lambda e: hint.configure(wraplength=max(px(160), top.winfo_width() - px(40)))
                  if isinstance(top.winfo_width(), (int, float)) and top.winfo_width() > 1 else None, add="+")
-=======
-        lbl(row2, tr("scan_qtyper"), 10, False, C["muted"], C["card"]).pack(side=self.s1, padx=(12, 0))
-        self.scan_qty = tk.StringVar(value="1")
-        ttk.Spinbox(row2, from_=1, to=9999, textvariable=self.scan_qty, width=7, justify=self.just).pack(side=self.s1, padx=8)
-        lbl(row2, tr("scan_mode_hint"), 9, False, C["muted"], C["card"], justify=self.just).pack(side=self.s1, padx=12)
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
         body = tk.Frame(f, bg=C["bg"])
         body.pack(fill="both", expand=True, pady=12)
         main = card(body, padx=18, pady=16)
-<<<<<<< HEAD
         main.grid(row=0, column=1 if self.rtl else 0, sticky="nsew")
         self.scan_head = tk.StringVar(value=tr("scan_wait"))
         self._scan_head_lbl = tk.Label(main, textvariable=self.scan_head, bg=C["card"], fg=C["title"],
@@ -80,18 +59,11 @@ class ScanPage:
         self._scan_head_lbl.pack(fill="x")
         main.bind("<Configure>", lambda e: self._scan_head_lbl.configure(wraplength=max(px(200), main.winfo_width() - px(50)))
                   if isinstance(main.winfo_width(), (int, float)) and main.winfo_width() > 1 else None, add="+")
-=======
-        main.pack(side=self.s1, fill="both", expand=True)
-        self.scan_head = tk.StringVar(value=tr("scan_wait"))
-        tk.Label(main, textvariable=self.scan_head, bg=C["card"], fg=C["title"], font=fnt(16, True),
-                 anchor=self.a1, justify=self.just, wraplength=760).pack(fill="x")
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         self.scan_flash = tk.Label(main, text="", bg=C["card"], fg=C["ok"], font=fnt(13, True), anchor=self.a1)
         self.scan_flash.pack(fill="x", pady=(4, 0))
         self.scan_grid = tk.Frame(main, bg=C["card"])
         self.scan_grid.pack(fill="both", expand=True, pady=(10, 0))
         side = card(body, padx=16, pady=16)
-<<<<<<< HEAD
         side.grid(row=0, column=0 if self.rtl else 1, sticky="nsew", padx=self.pad(12, 0))
         self._scan_body = body
         self._scan_main_card = main
@@ -101,9 +73,6 @@ class ScanPage:
         body.grid_columnconfigure(0 if self.rtl else 1, weight=0)
         body.grid_rowconfigure(0, weight=1)
         body.bind("<Configure>", self._adapt_scan_layout, add="+")
-=======
-        side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         self.scan_photo = tk.Label(side, text=tr("no_photo"), bg=C["empty"], fg=C["muted"], width=28, height=11)
         self.scan_photo.pack(pady=(0, 12))
         self.scan_btns = {}
@@ -113,7 +82,6 @@ class ScanPage:
             b.pack(fill="x", pady=3)
             self.scan_btns[key] = b
 
-<<<<<<< HEAD
     def _adapt_scan_row(self, event=None):
         """Wide: entry + buttons on one line. Narrow: buttons wrap under the entry instead of being cut off."""
         width = self._scan_row.winfo_width()
@@ -159,8 +127,6 @@ class ScanPage:
         body.grid_rowconfigure(0, weight=1)
         body.grid_rowconfigure(1, weight=0)
 
-=======
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     def _scan_mode_key(self):
         lab = self.scan_mode.get()
         if lab == mv_t("Stock In"):
@@ -182,13 +148,10 @@ class ScanPage:
             self.handle_scan(text)
         self.scan_entry.focus_set()
 
-<<<<<<< HEAD
     def _scan_value_wrap(self):
         w = self._scan_main_card.winfo_width()
         return max(px(200), (w if isinstance(w, (int, float)) and w > 1 else px(700)) - px(220))
 
-=======
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     def _scan_write(self, rows):
         for w in self.scan_grid.winfo_children():
             w.destroy()
@@ -197,11 +160,7 @@ class ScanPage:
             lbl(self.scan_grid, k, 10, False, C["muted"], C["card"], anchor=self.a1, justify=self.just).grid(
                 row=i, column=kc, sticky="ne", padx=(0, 18) if not self.rtl else (18, 0), pady=3)
             lbl(self.scan_grid, v, 11, False, C["ink"], C["card"], anchor=self.a1, justify=self.just,
-<<<<<<< HEAD
                 wraplength=self._scan_value_wrap()).grid(row=i, column=vc, sticky=self.a1, pady=3)
-=======
-                wraplength=520).grid(row=i, column=vc, sticky=self.a1, pady=3)
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         self.scan_grid.columnconfigure(vc, weight=1)
 
     def _thumb(self, stored, box=(230, 190)):

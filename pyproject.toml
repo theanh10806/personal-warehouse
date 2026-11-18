@@ -24,12 +24,8 @@ excel = ["openpyxl"]
 images = ["pillow"]
 qr = ["qrcode[pil]"]
 scan = ["opencv-python"]
-<<<<<<< HEAD
 web = ["pywebview"]
 all = ["pywebview", "openpyxl", "pillow", "qrcode[pil]", "opencv-python"]
-=======
-all = ["openpyxl", "pillow", "qrcode[pil]", "opencv-python"]
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 dev = ["pytest", "pyinstaller"]
 
 [project.gui-scripts]
@@ -41,12 +37,9 @@ version = { attr = "personal_warehouse.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
-<<<<<<< HEAD
 [tool.setuptools.package-data]
 personal_warehouse = ["webui/static/*"]
 
-=======
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

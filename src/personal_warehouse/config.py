@@ -4,13 +4,8 @@ import re
 from pathlib import Path
 
 APP_NAME = "Personal Warehouse"
-<<<<<<< HEAD
 SECTIONS = list("ABC")                 # 3 sections: A, B, C
 PARTS = [str(i) for i in range(1, 9)]  # 8 parts per section: 1..8  (24 locations: A1 ... C8)
-=======
-SECTIONS = list("ABCDEFGH")            # 8 sections: A..H
-PARTS = ["1", "2", "3"]                # 3 parts per section: 1, 2, 3
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 CONDITIONS = ["New", "Used", "Damaged", "Refurbished"]
 UNITS = ["pcs", "sets", "boxes", "kg", "L", "m", "pairs", "other"]
 MOVE_TYPES = ["Stock In", "Stock Out", "Adjustment"]

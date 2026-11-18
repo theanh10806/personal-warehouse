@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """Colour palettes, current theme, fonts and the app's design scales.
 
 Theme "Shin": a warm cream page, off-white "paper" cards with a thicker soft outline, a dark warm-ink
@@ -45,30 +44,10 @@ PALETTES = {
         accent_s="#4A2B2C", ok_s="#1F3C39", warn_s="#473D1F", danger_s="#4A2B2C",
         teal_s="#1F3C39", violet_s="#3A3150", top="#2B2931", ai="#25232A",
     ),
-=======
-"""Colour palettes, current theme and fonts."""
-
-PALETTES = {
-    "light": dict(bg="#F1F5F9", card="#FFFFFF", ink="#0F172A", muted="#64748B", title="#0F2747",
-                  side="#0F2747", side_ink="#CBD5E1", side_act="#2563EB", side_hov="#1B3A66",
-                  accent="#2563EB", accent_d="#1D4ED8", ok="#16A34A", ok_d="#15803D",
-                  warn="#F59E0B", danger="#DC2626", danger_d="#B91C1C", teal="#0891B2", violet="#7C3AED",
-                  head="#E2E8F0", line="#E2E8F0", soft_h="#CBD5E1", low="#FEF3C7", out="#FEE2E2",
-                  gone="#94A3B8", stripe="#F8FAFC", sel="#DBEAFE", input="#FFFFFF",
-                  occupied="#DBEAFE", empty="#F1F5F9"),
-    "dark": dict(bg="#0B1220", card="#111B2E", ink="#E5E7EB", muted="#94A3B8", title="#F1F5F9",
-                 side="#070D18", side_ink="#94A3B8", side_act="#2563EB", side_hov="#13213A",
-                 accent="#3B82F6", accent_d="#2563EB", ok="#22C55E", ok_d="#16A34A",
-                 warn="#FBBF24", danger="#EF4444", danger_d="#DC2626", teal="#22D3EE", violet="#A78BFA",
-                 head="#1A2740", line="#243350", soft_h="#2A3B5C", low="#4A3A10", out="#4B1D22",
-                 gone="#64748B", stripe="#0F1A2D", sel="#1E3A66", input="#16233A",
-                 occupied="#1E3A66", empty="#16233A"),
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 }
 C = dict(PALETTES["light"])
 
 THEME = "light"
-<<<<<<< HEAD
 FONT = "Segoe UI Variable"
 SCALE = 1.0                      # screen DPI / 96, set once by the main window (see set_scale)
 
@@ -89,9 +68,6 @@ def px(n):
 def bw():
     """Outline thickness of cards / inputs (the mock-up uses a 1.5 px stroke)."""
     return max(2, px(1.5))
-=======
-FONT = "Segoe UI"
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
 
 def current_theme():
@@ -105,7 +81,6 @@ def set_theme(name):
     C.update(PALETTES[THEME])
 
 
-<<<<<<< HEAD
 # Type scale: the only sizes the UI may use, so the visual hierarchy
 # (page title > section > body > label > hint) stays consistent everywhere.
 TS = {"page": 21, "kpi": 24, "section": 12, "body": 10, "label": 9, "hint": 8}
@@ -136,14 +111,6 @@ def pick_font():
     import tkinter.font as tkfont
     fams = set(tkfont.families())
     FONT = next((f for f in ("Segoe UI Variable", "Segoe UI", "SF Pro Text", "Helvetica Neue", "Noto Sans", "DejaVu Sans", "Arial")
-=======
-def pick_font():
-    """Choose the first installed UI font. Needs a Tk root to exist."""
-    global FONT
-    import tkinter.font as tkfont          # imported here so this module (and main.py) load without Tk
-    fams = set(tkfont.families())
-    FONT = next((f for f in ("Segoe UI", "SF Pro Text", "Helvetica Neue", "Noto Sans", "DejaVu Sans", "Arial")
->>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
                  if f in fams), "TkDefaultFont")
 
 
