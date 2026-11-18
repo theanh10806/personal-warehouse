@@ -3,6 +3,7 @@
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/). Nội dung mục của mỗi phiên bản
 được dùng làm ghi chú phát hành trên GitHub (và hiển thị trong hộp thoại cập nhật của app).
 
+<<<<<<< HEAD
 ## Chưa phát hành
 - Giao diện mới dựng bằng web (pywebview) theo phong cách dashboard: kem / đỏ / vàng / teal, sáng + tối, VI / EN / AR (RTL). Giao diện Tkinter cũ vẫn dùng được với `--tk`.
 
@@ -20,6 +21,8 @@
   in tem và trang Cài đặt; khoảng cách giữa thẻ chính và thẻ ảnh nằm đúng phía.
 - Thanh cuộn của bảng không còn bị khung bảng đè mất.
 
+=======
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 ## [3.0.0] - 2026-11-16
 ### Added
 - Dự án hóa: package `personal_warehouse`, cài bằng pip, file `.exe` và bộ cài Windows.

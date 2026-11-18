@@ -33,8 +33,11 @@ python -m PyInstaller --noconfirm --clean --windowed --onedir `
     --paths src `
     --collect-submodules personal_warehouse `
     --collect-all cv2 `
+<<<<<<< HEAD
     --collect-all webview `
     --add-data "src\personal_warehouse\webui\static;personal_warehouse\webui\static" `
+=======
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     --hidden-import PIL._tkinter_finder `
     packaging\run_app.py
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }

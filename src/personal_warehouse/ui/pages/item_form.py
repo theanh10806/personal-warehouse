@@ -17,8 +17,13 @@ from personal_warehouse.core.formatting import make_location, num, photo_file, q
 from personal_warehouse.core.translator import translate_online
 from personal_warehouse.i18n import cond_t, current_lang, from_label, tr, unit_t
 from personal_warehouse.ui.imaging import Image, ImageTk
+<<<<<<< HEAD
 from personal_warehouse.ui.theme import C, px
 from personal_warehouse.ui.widgets import Flow, btn, card, draw_barcode, lbl
+=======
+from personal_warehouse.ui.theme import C
+from personal_warehouse.ui.widgets import btn, card, draw_barcode, lbl
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
 
 class ItemFormPage:
@@ -33,7 +38,11 @@ class ItemFormPage:
         body = tk.Frame(f, bg=C["bg"])
         body.pack(fill="both", expand=True)
         formcard = card(body, padx=18, pady=12)
+<<<<<<< HEAD
         formcard.grid(row=0, column=1 if self.rtl else 0, sticky="nsew")
+=======
+        formcard.pack(side=self.s1, fill="both", expand=True)
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         form = tk.Frame(formcard, bg=C["card"])
         form.pack(fill="both", expand=True)
         self.fields = {}
@@ -48,12 +57,20 @@ class ItemFormPage:
         for idx, (key, label, kind) in enumerate(specs):
             r, c = divmod(idx, 2)
             cell = tk.Frame(form, bg=C["card"], padx=8, pady=5)
+<<<<<<< HEAD
             cell.grid(row=r, column=1 - c if self.rtl else c, sticky="ew")
+=======
+            cell.grid(row=r, column=c, sticky="ew")
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
             self._field_label(cell, tr(label), C["card"]).pack(fill="x")
             if kind in ("entry", "entry_tr"):
                 row = tk.Frame(cell, bg=C["card"])
                 row.pack(fill="x", pady=(3, 0))
+<<<<<<< HEAD
                 w = ttk.Entry(row, width=12, justify="right" if (self.rtl or key == "name_ar" and current_lang() == "ar") else "left")
+=======
+                w = ttk.Entry(row, width=36, justify="right" if (self.rtl or key == "name_ar" and current_lang() == "ar") else "left")
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
                 if kind == "entry_tr":
                     btn(row, tr("btn_translate"), self.translate_name_field, "soft", padx=8, pady=4).pack(
                         side=self.s2, padx=(6, 0))
@@ -61,6 +78,7 @@ class ItemFormPage:
             else:
                 vals = {"section": SECTIONS, "part": PARTS, "condition": [cond_t(c) for c in CONDITIONS],
                         "unit": [unit_t(u) for u in UNITS]}[kind]
+<<<<<<< HEAD
                 w = ttk.Combobox(cell, values=vals, state="readonly", width=12, justify=self.just)
                 w.bind("<<ComboboxSelected>>", lambda e: self._update_loc_preview())
                 w.pack(fill="x", pady=(3, 0))
@@ -80,6 +98,17 @@ class ItemFormPage:
         body.grid_columnconfigure(0 if self.rtl else 1, weight=0)
         body.grid_rowconfigure(0, weight=1)
         body.bind("<Configure>", self._adapt_item_form, add="+")
+=======
+                w = ttk.Combobox(cell, values=vals, state="readonly", width=34, justify=self.just)
+                w.bind("<<ComboboxSelected>>", lambda e: self._update_loc_preview())
+                w.pack(fill="x", pady=(3, 0))
+            self.fields[key] = w
+        form.columnconfigure(0, weight=1)
+        form.columnconfigure(1, weight=1)
+
+        side = card(body, padx=16, pady=14)
+        side.pack(side=self.s2, fill="y", padx=(0, 12) if self.rtl else (12, 0))
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         lbl(side, tr("photo_title"), 10, True, C["title"], C["card"], anchor=self.a1).pack(fill="x")
         self.photo_label = tk.Label(side, text=tr("no_photo"), bg=C["empty"], fg=C["muted"], width=28, height=11)
         self.photo_label.pack(pady=10)
@@ -92,6 +121,7 @@ class ItemFormPage:
                                    highlightbackground=C["line"])
         self.bc_canvas.pack()
 
+<<<<<<< HEAD
         actions = Flow(f, self.rtl, [(px(720), 4), (px(360), 2)], gap=8)
         actions.frame.pack(fill="x", pady=12)
         for text, cmd, kind in ((tr("btn_save"), self.save_item, "success"), (tr("btn_clear"), self.clear_form, "soft"),
@@ -140,6 +170,16 @@ class ItemFormPage:
             self._item_form_grid.columnconfigure(1, weight=0 if fields_compact else 1,
                                                  uniform="" if fields_compact else "item_fields")
 
+=======
+        actions = tk.Frame(f, bg=C["bg"])
+        actions.pack(fill="x", pady=12)
+        btn(actions, tr("btn_save"), self.save_item, "success").pack(side=self.s1)
+        btn(actions, tr("btn_clear"), self.clear_form, "soft").pack(side=self.s1, padx=8)
+        btn(actions, tr("btn_print_one"), self.print_current_label, "soft").pack(side=self.s1)
+        btn(actions, tr("btn_back"), lambda: self.pages.select(self.inventory_tab), "ghost").pack(side=self.s2)
+        self.clear_form()
+
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     def _get(self, k):
         w = self.fields[k]
         v = w.get().strip()

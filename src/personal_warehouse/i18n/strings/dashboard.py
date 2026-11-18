@@ -11,9 +11,15 @@ _t("m_units", "Tổng số lượng tồn", "Units in stock", "الوحدات ف
 _t("m_value", "Giá trị nhập (vốn)", "Purchase value", "قيمة الشراء")
 _t("m_profit", "Lợi nhuận gộp dự kiến", "Potential gross profit", "الربح الإجمالي المتوقع")
 _t("m_alerts", "Sắp hết / hết hàng", "Low / out of stock", "منخفض / نافد")
+<<<<<<< HEAD
 _t("card_sections", "Tồn kho theo khu", "Stock by section", "المخزون حسب القسم")
 _t("card_alerts", "Cần chú ý", "Needs attention", "يحتاج إلى انتباه")
 _t("card_recent", "Hoạt động gần đây", "Recent activity", "النشاط الأخير")
+=======
+_t("card_sections", "TỒN KHO THEO KHU", "STOCK BY SECTION", "المخزون حسب القسم")
+_t("card_alerts", "CẦN CHÚ Ý", "NEEDS ATTENTION", "يحتاج إلى انتباه")
+_t("card_recent", "HOẠT ĐỘNG GẦN ĐÂY", "RECENT ACTIVITY", "النشاط الأخير")
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 _t("qa_add", "＋ Thêm hàng mới", "＋ Add a new item", "＋ إضافة صنف جديد")
 _t("qa_inv", "Xem kho hàng", "View inventory", "عرض المخزون")
 _t("qa_move", "Nhập / xuất kho", "Record movement", "تسجيل حركة")
@@ -27,6 +33,7 @@ _t("col_qty", "SL", "Qty", "الكمية")
 _t("col_min", "Tối thiểu", "Min", "الحد الأدنى")
 _t("col_time", "Thời gian", "Time", "الوقت")
 _t("col_type", "Loại", "Type", "النوع")
+<<<<<<< HEAD
 
 # --- redesigned dashboard (KPI cards, trend chart, smart insights) ---
 _t("card_trend", "Nhập / xuất 14 ngày qua", "Stock in / out, last 14 days", "الإدخال والإخراج خلال آخر 14 يومًا")
@@ -56,3 +63,5 @@ _t("dash_view_all", "Xem tất cả", "View all", "عرض الكل")
 _t("top_search", "Tìm hàng theo tên, mã, vị trí… rồi nhấn Enter", "Search items by name, code or location, then press Enter",
    "ابحث عن صنف بالاسم أو الرمز أو الموقع ثم اضغط Enter")
 
+=======
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb

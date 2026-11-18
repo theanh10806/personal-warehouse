@@ -13,7 +13,11 @@ from personal_warehouse.core.database import db
 from personal_warehouse.core.translator import translate_online
 from personal_warehouse.i18n import LANGS, current_lang, tr
 from personal_warehouse.settings import load_settings, save_settings
+<<<<<<< HEAD
 from personal_warehouse.ui.theme import C, current_theme, fnt, px
+=======
+from personal_warehouse.ui.theme import C, current_theme, fnt
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 from personal_warehouse.ui.widgets import btn, card, lbl
 
 
@@ -29,12 +33,19 @@ class SettingsPage:
                 (tr("set_theme"), [tr("theme_light"), tr("theme_dark")],
                  tr("theme_dark") if current_theme() == "dark" else tr("theme_light"),
                  lambda v: self.change_theme("dark" if v == tr("theme_dark") else "light"))]):
+<<<<<<< HEAD
             lc, vc = (1, 0) if self.rtl else (0, 1)                  # label at the start side
             lbl(c1, label, 11, True, C["title"], C["card"], anchor=self.a1).grid(
                 row=row, column=lc, sticky=self.a1, pady=8, padx=self.pad(0, 20))
             cmb = ttk.Combobox(c1, values=values, state="readonly", width=22, justify=self.just)
             cmb.set(current)
             cmb.grid(row=row, column=vc, sticky=self.a1)
+=======
+            lbl(c1, label, 11, True, C["title"], C["card"], anchor=self.a1).grid(row=row, column=0, sticky=self.a1, pady=8, padx=(0, 20))
+            cmb = ttk.Combobox(c1, values=values, state="readonly", width=22, justify=self.just)
+            cmb.set(current)
+            cmb.grid(row=row, column=1, sticky=self.a1)
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
             cmb.bind("<<ComboboxSelected>>", lambda e, cmb=cmb, cb=cb: cb(cmb.get()))
         lbl(c1, tr("set_rtl"), 9, False, C["muted"], C["card"], anchor=self.a1).grid(
             row=2, column=0, columnspan=2, sticky=self.a1, pady=(4, 0))
@@ -42,15 +53,21 @@ class SettingsPage:
         c2 = card(f, padx=20, pady=16)
         c2.pack(fill="x", pady=(14, 0))
         lbl(c2, tr("set_translate"), 11, True, C["title"], C["card"], anchor=self.a1).pack(fill="x")
+<<<<<<< HEAD
         hint = lbl(c2, tr("set_translate_hint"), 9, False, C["muted"], C["card"], anchor=self.a1, justify=self.just,
                    wraplength=px(400))
         hint.pack(fill="x", pady=(4, 10))
         c2.bind("<Configure>", lambda e: hint.configure(wraplength=max(px(200), c2.winfo_width() - px(50)))
                 if isinstance(c2.winfo_width(), (int, float)) and c2.winfo_width() > 1 else None, add="+")
+=======
+        lbl(c2, tr("set_translate_hint"), 9, False, C["muted"], C["card"], anchor=self.a1, justify=self.just,
+            wraplength=820).pack(fill="x", pady=(4, 10))
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         btn(c2, tr("btn_translate"), self.bulk_translate, "primary").pack(anchor=self.a1)
 
         c3 = card(f, padx=20, pady=16)
         c3.pack(fill="x", pady=(14, 0))
+<<<<<<< HEAD
         info = lbl(c3, tr("data_info", config.DATA_DIR, config.BACKUP_DIR.name, KEEP_AUTO_BACKUPS), 10, False,
                    C["muted"], C["card"], anchor=self.a1, justify=self.just, wraplength=px(400))
         info.pack(fill="x", pady=(0, 10))
@@ -59,6 +76,13 @@ class SettingsPage:
         row = tk.Frame(c3, bg=C["card"])
         row.pack(fill="x")
         btn(row, tr("qa_export"), self.export_excel, "soft").pack(side=self.s1, padx=self.pad(0, 8))
+=======
+        lbl(c3, tr("data_info", config.DATA_DIR, config.BACKUP_DIR.name, KEEP_AUTO_BACKUPS), 10, False, C["muted"], C["card"],
+            anchor=self.a1, justify=self.just).pack(fill="x", pady=(0, 10))
+        row = tk.Frame(c3, bg=C["card"])
+        row.pack(fill="x")
+        btn(row, tr("qa_export"), self.export_excel, "soft").pack(side=self.s1, padx=(0, 8))
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         btn(row, tr("qa_backup"), self.backup_all, "soft").pack(side=self.s1)
 
         c4 = card(f, padx=20, pady=16)

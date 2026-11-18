@@ -9,7 +9,11 @@ from personal_warehouse.core.database import db
 from personal_warehouse.core.formatting import item_name, make_location, money, num, qty_fmt
 from personal_warehouse.core.stock import apply_movement
 from personal_warehouse.i18n import from_label, mv_t, tr, unit_t
+<<<<<<< HEAD
 from personal_warehouse.ui.theme import C, fnt, px
+=======
+from personal_warehouse.ui.theme import C, fnt
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 from personal_warehouse.ui.widgets import btn, card, lbl, make_tree
 
 
@@ -25,6 +29,7 @@ class MovementsPage:
         self.mov_qty_label = tk.StringVar(value=tr("mv_qty"))
         heads = [(tr("mv_item"), None), (tr("mv_type"), None), (None, self.mov_qty_label),
                  (tr("mv_price"), None), (tr("mv_reason"), None)]
+<<<<<<< HEAD
         labels = []
         for text, var in heads:
             w = tk.Label(form, text=text or "", textvariable=var, bg=C["card"], fg=C["muted"],
@@ -49,6 +54,29 @@ class MovementsPage:
         self.mov_info_label = tk.Label(form, textvariable=self.mov_info, bg=C["card"], fg=C["muted"],
                                         font=fnt(10), anchor=self.a1)
         form.bind("<Configure>", self._adapt_movement_form, add="+")
+=======
+        for col, (text, var) in enumerate(heads):
+            tk.Label(form, text=text or "", textvariable=var, bg=C["card"], fg=C["muted"], font=fnt(10),
+                     anchor=self.a1).grid(row=0, column=col, sticky=self.a1, padx=6)
+        self.mov_item_cb = ttk.Combobox(form, textvariable=self.mov_item, width=42, justify=self.just)
+        self.mov_item_cb.grid(row=1, column=0, padx=6, pady=4)
+        self.mov_item_cb.bind("<KeyRelease>", self._filter_items)
+        self.mov_item_cb.bind("<<ComboboxSelected>>", lambda e: self._on_item_picked())
+        tcb = ttk.Combobox(form, textvariable=self.mov_type, values=[mv_t(m) for m in MOVE_TYPES],
+                           state="readonly", width=14, justify=self.just)
+        tcb.grid(row=1, column=1, padx=6)
+        tcb.bind("<<ComboboxSelected>>", lambda e: self._on_item_picked())
+        self.mov_qty_entry = ttk.Entry(form, textvariable=self.mov_qty, width=11, justify=self.just)
+        self.mov_qty_entry.grid(row=1, column=2, padx=6)
+        self.mov_qty_entry.bind("<Return>", lambda e: self.save_movement())
+        ttk.Entry(form, textvariable=self.mov_price, width=12, justify=self.just).grid(row=1, column=3, padx=6)
+        e = ttk.Entry(form, textvariable=self.mov_reason, width=26, justify=self.just)
+        e.grid(row=1, column=4, padx=6)
+        e.bind("<Return>", lambda ev: self.save_movement())
+        btn(form, tr("mv_save"), self.save_movement, "success").grid(row=1, column=5, padx=8)
+        tk.Label(form, textvariable=self.mov_info, bg=C["card"], fg=C["muted"], font=fnt(10),
+                 anchor=self.a1).grid(row=2, column=0, columnspan=6, sticky=self.a1, padx=6, pady=(8, 0))
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         opts = tk.Frame(f, bg=C["bg"])
         opts.pack(fill="x", pady=(14, 8))
         lbl(opts, tr("mv_history"), 12, True, C["title"]).pack(side=self.s1)
@@ -61,6 +89,7 @@ class MovementsPage:
                  "qty": tr("h_qty"), "change": tr("h_change"), "price": tr("h_price"), "reason": tr("h_reason")}
         widths = {"date": 140, "code": 90, "name": 210, "type": 100, "qty": 80,
                   "change": 150, "price": 90, "reason": 260}
+<<<<<<< HEAD
         wrap, self.mov_tree = make_tree(f, cols, heads, widths, {"name": "w", "reason": "w"}, self.rtl, height=12)
         wrap.pack(fill="both", expand=True)
 
@@ -92,6 +121,11 @@ class MovementsPage:
             for i, weight in enumerate((4, 1, 1, 1, 2, 0)):
                 self._movement_form.columnconfigure(5 - i if self.rtl else i, weight=weight)
 
+=======
+        wrap, self.mov_tree = make_tree(f, cols, heads, widths, {"name": "w", "reason": "w"}, self.rtl)
+        wrap.pack(fill="both", expand=True)
+
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     def _filter_items(self, ev):
         if ev.keysym in ("Up", "Down", "Left", "Right", "Tab", "Escape", "Shift_L", "Shift_R"):
             return

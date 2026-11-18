@@ -1,11 +1,16 @@
+<<<<<<< HEAD
 """Reusable Tk widgets / factories (card, label, button, tree), the responsive helpers
 (ScrollFrame, Flow) and the page switcher."""
+=======
+"""Reusable Tk widgets / factories (card, label, button, tree) and the page switcher."""
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
 import tkinter as tk
 from tkinter import ttk
 
 from personal_warehouse.core.barcode import code128_bars
 from personal_warehouse.i18n import tr
+<<<<<<< HEAD
 from personal_warehouse.ui.theme import C, bw, fnt, mix, px
 
 
@@ -13,12 +18,20 @@ def card(parent, **kw):
     """Paper-coloured content surface with the theme's soft 1.5 px outline."""
     kw.setdefault("bd", 0)
     return tk.Frame(parent, bg=C["card"], highlightbackground=C["line"], highlightthickness=bw(), **kw)
+=======
+from personal_warehouse.ui.theme import C, fnt
+
+
+def card(parent, **kw):
+    return tk.Frame(parent, bg=C["card"], highlightbackground=C["line"], highlightthickness=1, **kw)
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
 
 def lbl(parent, text="", size=10, bold=False, fg=None, bg=None, **kw):
     return tk.Label(parent, text=text, font=fnt(size, bold), fg=fg or C["ink"], bg=bg or C["bg"], **kw)
 
 
+<<<<<<< HEAD
 def btn(parent, text, cmd, kind="soft", min_hit=44, **kw):
     """Consistent, high-contrast button with a comfortable hit target and clear interaction states.
 
@@ -223,6 +236,39 @@ def make_tree(parent, cols, heads, widths, anchors=None, rtl=False, **kw):
     tree.tag_configure("odd", background=C["stripe"])
     tree.tag_configure("low", background=C["low"], foreground=C["ink"])
     tree.tag_configure("out", background=C["out"], foreground=C["ink"])
+=======
+def btn(parent, text, cmd, kind="soft", **kw):
+    pal = {"primary": (C["accent"], "#FFFFFF", C["accent_d"]), "success": (C["ok"], "#FFFFFF", C["ok_d"]),
+           "danger": (C["danger"], "#FFFFFF", C["danger_d"]), "soft": (C["head"], C["ink"], C["soft_h"]),
+           "ghost": (C["card"], C["accent"], C["head"])}
+    bg, fg, hov = pal[kind]
+    opts = dict(padx=14, pady=8, cursor="hand2", font=fnt(10, True))
+    opts.update(kw)                                   # callers may override padx / pady / font ...
+    b = tk.Button(parent, text=text, command=cmd, bg=bg, fg=fg, activebackground=hov, activeforeground=fg,
+                  disabledforeground=C["muted"], relief="flat", bd=0, **opts)
+    b.bind("<Enter>", lambda e: b.configure(bg=hov) if str(b["state"]) != "disabled" else None)
+    b.bind("<Leave>", lambda e: b.configure(bg=bg))
+    return b
+
+
+def make_tree(parent, cols, heads, widths, anchors=None, rtl=False, **kw):
+    wrap = tk.Frame(parent, bg=C["card"], highlightbackground=C["line"], highlightthickness=1)
+    tree = ttk.Treeview(wrap, columns=cols, show="headings", **kw)
+    sb = ttk.Scrollbar(wrap, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=sb.set)
+    flip = {"w": "e", "e": "w"}
+    for c in cols:
+        tree.heading(c, text=heads[c])
+        a = (anchors or {}).get(c, "center")
+        tree.column(c, width=widths[c], minwidth=50, anchor=flip.get(a, a) if rtl else a)
+    if rtl:
+        tree.configure(displaycolumns=list(reversed(cols)))
+    tree.pack(side="right" if rtl else "left", fill="both", expand=True)
+    sb.pack(side="left" if rtl else "right", fill="y")
+    tree.tag_configure("odd", background=C["stripe"])
+    tree.tag_configure("low", background=C["low"])
+    tree.tag_configure("out", background=C["out"])
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
     tree.tag_configure("gone", foreground=C["gone"])
     return wrap, tree
 
@@ -241,6 +287,7 @@ def draw_barcode(canvas, text, width=250, height=74):
     canvas.create_text(width // 2, height - 9, text=text, fill="black", font=("Courier New", 10, "bold"))
 
 
+<<<<<<< HEAD
 ANIMATE_PAGES = False        # the slide/fade on every page switch forces a re-layout per frame: off = snappy
 
 
@@ -423,10 +470,16 @@ def install_wheel(root):
 class Pages:
     """Tiny page switcher (sidebar navigation instead of notebook tabs).  A page is identified by its inner
     frame; if it was registered together with a ScrollFrame, the scroll container is what gets shown."""
+=======
+
+class Pages:
+    """Tiny page switcher (sidebar navigation instead of notebook tabs)."""
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
     def __init__(self, on_select=None):
         self.current = None
         self.on_select = on_select
+<<<<<<< HEAD
         self._outer = {}
         self._scroll = {}
 
@@ -436,6 +489,8 @@ class Pages:
 
     def _shown(self, frame):
         return self._outer.get(frame, frame)
+=======
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
 
     def select(self, frame=None):
         if frame is None:
@@ -443,6 +498,7 @@ class Pages:
         if self.current is frame:
             return None
         if self.current is not None:
+<<<<<<< HEAD
             self._shown(self.current).pack_forget()
         self._shown(frame).pack(fill="both", expand=True)
         self.current = frame
@@ -453,6 +509,11 @@ class Pages:
             sf.outer.after(30, sf.refit)
             if ANIMATE_PAGES:
                 sf.animate_in()
+=======
+            self.current.pack_forget()
+        frame.pack(fill="both", expand=True)
+        self.current = frame
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         if self.on_select:
             self.on_select(frame)
         return None

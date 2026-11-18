@@ -37,10 +37,16 @@ class LabelDialog(tk.Toplevel):
             (tr("lbl_kind"), ttk.Combobox(f, textvariable=self.kind_v, state="readonly", width=34, justify=just,
                                           values=[tr("kind_" + k) for k in LABEL_KINDS])),
             (tr("lbl_copies"), ttk.Spinbox(f, from_=1, to=50, textvariable=self.copies_v, width=8, justify=just))]
+<<<<<<< HEAD
         lc, wc = (1, 0) if rtl else (0, 1)                      # label at the start side
         for i, (text, widget) in enumerate(rows, 1):
             lbl(f, text, 10, False, C["ink"], C["card"]).grid(row=i, column=lc, sticky=a1, pady=6)
             widget.grid(row=i, column=wc, sticky=a1, padx=12)
+=======
+        for i, (text, widget) in enumerate(rows, 1):
+            lbl(f, text, 10, False, C["ink"], C["card"]).grid(row=i, column=0, sticky=a1, pady=6)
+            widget.grid(row=i, column=1, sticky=a1, padx=12)
+>>>>>>> c8a133662267867832f0d0679ec8832dee7dfdbb
         for i, (text, var) in enumerate([(tr("lbl_full"), self.full_v), (tr("lbl_prices"), self.prices_v)], 5):
             tk.Checkbutton(f, text=text, variable=var, bg=C["card"], fg=C["ink"], activebackground=C["card"],
                            activeforeground=C["ink"], selectcolor=C["input"], font=fnt(10),
