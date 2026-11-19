@@ -55,7 +55,7 @@ function toast(msg, kind = '', ms = 6000) {
   setTimeout(() => el.remove(), ms);
 }
 
-function dialog({title, body = '', html = '', buttons, wide = false, onOpen}) {
+function dialog({title, body = '', html = '', buttons, wide = false, onOpen}) {   // onOpen(overlay, close)
   return new Promise(resolve => {
     const ov = $('#overlay');
     const prevFocus = document.activeElement;
@@ -79,7 +79,7 @@ function dialog({title, body = '', html = '', buttons, wide = false, onOpen}) {
       if (btn) { const b = buttons[+btn.dataset.i]; close(b.collect ? {value: b.value, form: collect()} : b.value); }
       else if (e.target === ov) close(buttons.find(b => b.cancel)?.value ?? null);
     };
-    if (onOpen) onOpen(ov);
+    if (onOpen) onOpen(ov, close);
     (ov.querySelector('[autofocus]') || ov.querySelector('.btn.primary,.btn.success,.btn.danger') || ov.querySelector('.btn')).focus();
   });
 }
@@ -597,8 +597,40 @@ async function checkUpdates(manual) {
   if (r.ok === false) { if (manual) await ok(r); return; }
   if (r.status === 'new') {
     toast(r.toast, '', 8000);
-    if (await confirmBox(r.title, r.message)) api.open_url(r.url);
+    const go = await dialog({title: r.title, body: r.message, buttons: [
+      {label: t('upd_btn_later'), value: false, cancel: true},
+      {label: r.can_install ? t('upd_btn_now') : t('upd_btn_page'), value: true, kind: 'primary'}]});
+    if (!go) return;
+    if (r.can_install) await runUpdate(r); else api.open_url(r.url);
   } else if (manual && r.message) await alertBox(r.title, r.message);
+}
+
+/** Download the new installer with a progress bar, then let the app close and the installer take over. */
+async function runUpdate(r) {
+  if (!(await ok(await api.update_start()))) { api.open_url(r.url); return; }
+  let timer;
+  const result = await dialog({
+    title: t('upd_dl_title'),
+    html: `<div class="body"><div id="updMsg">${esc(t('upd_dl_wait'))}</div><div class="progress"><i id="updBar"></i></div></div>`,
+    buttons: [{label: t('btn_cancel'), value: 'cancel', cancel: true}],
+    onOpen: (ov, close) => {
+      timer = setInterval(async () => {
+        const st = await api.update_status();
+        const bar = $('#updBar'), msg = $('#updMsg');
+        if (bar) bar.style.width = (st.percent || 0) + '%';
+        if (msg && st.message) msg.textContent = st.message;
+        if (st.finished) { clearInterval(timer); close(st.cancelled ? 'cancel' : st.error ? {error: st.error} : 'done'); }
+      }, 400);
+    }});
+  clearInterval(timer);
+  if (result === 'cancel') { await api.update_cancel(); return; }
+  if (result && result.error) {
+    if (await confirmBox(t('upd_title'), result.error, 'primary', t('upd_btn_page'))) api.open_url(r.url);
+    return;
+  }
+  const inst = await api.update_install();
+  if (!(await ok(inst))) return;
+  toast(inst.message, 'ok', 30000);
 }
 
 async function bulkTranslate() {

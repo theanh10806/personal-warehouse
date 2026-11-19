@@ -31,6 +31,24 @@ _t("upd_auto", "Tự kiểm tra khi mở ứng dụng", "Check automatically whe
 _t("upd_available", "Có phiên bản mới {0} (bạn đang dùng {1}).\n\n{2}\n\nMở trang tải về?",
    "Version {0} is available (you have {1}).\n\n{2}\n\nOpen the download page?",
    "الإصدار {0} متاح (لديك {1}).\n\n{2}\n\nفتح صفحة التنزيل؟")
+_t("upd_new_body", "Có phiên bản mới {0} (bạn đang dùng {1}).\n\n{2}", "Version {0} is available (you have {1}).\n\n{2}",
+   "الإصدار {0} متاح (لديك {1}).\n\n{2}")
+_t("upd_btn_now", "Cập nhật ngay", "Update now", "حدّث الآن")
+_t("upd_btn_later", "Để sau", "Later", "لاحقًا")
+_t("upd_btn_page", "Mở trang tải về", "Open download page", "فتح صفحة التنزيل")
+_t("upd_dl_title", "Đang tải bản cập nhật", "Downloading the update", "جارٍ تنزيل التحديث")
+_t("upd_dl_progress", "Đã tải {0} / {1} MB", "Downloaded {0} / {1} MB", "تم تنزيل {0} / {1} ميجابايت")
+_t("upd_dl_progress_unknown", "Đã tải {0} MB", "Downloaded {0} MB", "تم تنزيل {0} ميجابايت")
+_t("upd_dl_wait", "Đang kết nối…", "Connecting…", "جارٍ الاتصال…")
+_t("upd_dl_fail", "Không tải được bản cập nhật.\n{0}\n\nBạn có thể tải thủ công từ trang phát hành.",
+   "The update could not be downloaded.\n{0}\n\nYou can download it manually from the release page.",
+   "تعذر تنزيل التحديث.\n{0}\n\nيمكنك تنزيله يدويًا من صفحة الإصدار.")
+_t("upd_installing", "Đang cài bản mới. Ứng dụng sẽ tự đóng và mở lại sau vài giây; dữ liệu của bạn được giữ nguyên.",
+   "Installing the new version. The app will close and reopen in a few seconds; your data is kept.",
+   "جارٍ تثبيت الإصدار الجديد. سيُغلق التطبيق ويُعاد فتحه خلال ثوانٍ؛ بياناتك محفوظة.")
+_t("upd_store", "Bản cài từ Microsoft Store được cập nhật tự động qua Store.",
+   "This copy comes from the Microsoft Store and is updated through the Store.",
+   "هذه النسخة من متجر Microsoft وتُحدَّث عبر المتجر.")
 _t("upd_none", "Bạn đang dùng phiên bản mới nhất ({0}).", "You are up to date ({0}).",
    "أنت تستخدم أحدث إصدار ({0}).")
 _t("upd_fail", "Không kiểm tra được cập nhật (cần Internet).\n{0}", "Could not check for updates (Internet needed).\n{0}",

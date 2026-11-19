@@ -71,7 +71,8 @@ class Api:
     def __init__(self):
         self._window = None
         self._bt = None
-        self._upd_notified = False
+        self._release = None                                     # latest release found by check_updates
+        self._dl = None                                          # state of the running / finished update download
 
     # ------------------------------------------------------------------ plumbing
     def _attach(self, window):
@@ -788,20 +789,26 @@ class Api:
                 "message": tr("bt_done", len(st["out"]), st["fail"])}
 
     # ------------------------------------------------------------------ updates
+    def _can_install(self):
+        """In-app install: only in the installed desktop app (not --browser, not from source, not a Store package)."""
+        return self._window is not None and updater.can_self_update()
+
     @safe
     def check_updates(self, manual=False):
+        title = tr("upd_title")
+        if updater.is_store_package():                           # the Microsoft Store updates this install
+            return {"ok": True, "status": "store", "title": title, "message": tr("upd_store")} if manual \
+                else {"ok": True, "status": "skip"}
         if not manual and not load_settings().get("auto_update", True):
             return {"ok": True, "status": "skip"}
         res = updater.check()
-        title = tr("upd_title")
         if res["status"] == "new":
             rel = res["release"]
-            if not manual:
-                if load_settings().get("notified_version") == rel["version"]:
-                    return {"ok": True, "status": "skip"}
-                save_settings(notified_version=rel["version"])
+            self._release = rel
+            can = self._can_install() and bool(rel["download"])
             return {"ok": True, "status": "new", "title": title, "url": rel["download"] or rel["page"],
-                    "message": tr("upd_available", rel["version"], __version__, rel["notes"] or ""),
+                    "can_install": can, "version": rel["version"],
+                    "message": tr("upd_new_body", rel["version"], __version__, rel["notes"] or ""),
                     "toast": tr("upd_status", rel["version"])}
         if not manual:
             return {"ok": True, "status": "skip"}
@@ -810,6 +817,67 @@ class Api:
         if res["status"] == "disabled":
             return {"ok": True, "status": "disabled", "title": title, "message": tr("upd_disabled")}
         return {"ok": False, "error": tr("upd_fail", res["error"]), "title": title}
+
+    @safe
+    def update_start(self):
+        """Begin downloading the installer found by the last check (runs in the background)."""
+        rel = self._release
+        if not rel or not rel.get("download") or not self._can_install():
+            return {"ok": False, "error": tr("upd_dl_fail", "no installer available")}
+        if self._dl and not self._dl["finished"]:
+            return {"ok": True}
+        updater.clean_update_dir()
+        self._dl = {"done": 0, "total": rel.get("size") or 0, "finished": False, "error": "", "cancel": False,
+                    "path": "", "version": rel["version"]}
+        threading.Thread(target=self._dl_worker, args=(self._dl, rel), daemon=True).start()
+        return {"ok": True}
+
+    @staticmethod
+    def _dl_worker(st, rel):
+        dest = updater.update_dir() / f"PersonalWarehouse-Setup-{rel['version']}.exe"
+
+        def progress(done, total):
+            st["done"], st["total"] = done, total
+        try:
+            updater.download(rel["download"], dest, rel.get("sha256", ""), rel.get("size", 0),
+                             progress=progress, cancelled=lambda: st["cancel"])
+            st["path"] = str(dest)
+        except InterruptedError:
+            st["error"] = "cancelled"
+        except Exception as e:                                   # noqa: BLE001 - shown to the user
+            st["error"] = str(e) or type(e).__name__
+        st["finished"] = True
+
+    @safe
+    def update_status(self):
+        st = self._dl
+        if not st:
+            return {"ok": True, "idle": True}
+        mb = 1024 * 1024
+        pct = int(st["done"] * 100 / st["total"]) if st["total"] else 0
+        msg = (tr("upd_dl_progress", f"{st['done'] / mb:.1f}", f"{st['total'] / mb:.1f}") if st["total"]
+               else tr("upd_dl_progress_unknown", f"{st['done'] / mb:.1f}"))
+        err = "" if st["error"] == "cancelled" else st["error"]
+        return {"ok": True, "percent": min(pct, 100), "message": msg, "finished": st["finished"],
+                "error": tr("upd_dl_fail", err) if err else "", "cancelled": st["error"] == "cancelled"}
+
+    @safe
+    def update_cancel(self):
+        if self._dl and not self._dl["finished"]:
+            self._dl["cancel"] = True
+        return {"ok": True}
+
+    @safe
+    def update_install(self):
+        """Run the verified installer silently and close the app so it can replace the files."""
+        st = self._dl
+        if not (st and st["finished"] and not st["error"] and st["path"]) or not self._can_install():
+            return {"ok": False, "error": tr("upd_dl_fail", "installer not ready")}
+        from personal_warehouse.core.database import auto_backup
+        auto_backup(overwrite=True)                              # data is backed up before anything is replaced
+        updater.launch_installer(st["path"])
+        threading.Timer(0.8, self._window.destroy).start()       # let this reply reach the page first
+        return {"ok": True, "message": tr("upd_installing")}
 
     @safe
     def open_url(self, url):

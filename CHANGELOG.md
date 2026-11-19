@@ -4,6 +4,11 @@
 được dùng làm ghi chú phát hành trên GitHub (và hiển thị trong hộp thoại cập nhật của app).
 
 
+## [3.2.0] - 2026-11-19
+### Added
+- Tự cập nhật ngay trong app: khi mở app (có Internet) sẽ báo bản mới; bấm **Cập nhật ngay** để app tự tải (có thanh tiến trình, kiểm tra SHA-256), tự cài và mở lại, hoặc bấm **Để sau**. Dữ liệu được sao lưu trước khi cài và không bị thay đổi.
+- Bản cài từ Microsoft Store không dùng cơ chế này (Store tự cập nhật).
+
 ## [3.1.0] - 2026-11-19
 ### Added
 - Giao diện mới dựng bằng web (pywebview) theo phong cách dashboard: kem / đỏ / vàng / teal, sáng + tối, VI / EN / AR (RTL). Giao diện Tkinter cũ vẫn dùng được với `--tk`.

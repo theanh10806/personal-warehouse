@@ -166,3 +166,85 @@ def test_http_bridge_serves_page_and_api(api):
             urllib.request.urlopen(bad)                          # private methods are not reachable
     finally:
         srv.shutdown()
+
+
+# ---------------------------------------------------------------------------------------------- in-app update
+def _release(**kw):
+    rel = {"version": "9.9.9", "page": "https://github.com/o/r/releases/tag/v9.9.9", "notes": "- better",
+           "download": "https://github.com/o/r/releases/download/v9.9.9/PersonalWarehouse-Setup-9.9.9.exe",
+           "sha256": "", "size": 0}
+    rel.update(kw)
+    return rel
+
+
+def test_update_offers_install_only_in_the_installed_desktop_app(api, monkeypatch):
+    from personal_warehouse import updater
+    monkeypatch.setattr(updater, "check", lambda: {"status": "new", "release": _release(), "error": ""})
+    r = api.check_updates(False)
+    assert r["status"] == "new" and r["can_install"] is False and r["url"].endswith(".exe")   # no window -> browser fallback
+    api._window = object()
+    monkeypatch.setattr(updater, "can_self_update", lambda: True)
+    assert api.check_updates(False)["can_install"] is True
+    assert api.check_updates(False)["status"] == "new"        # "Later" is not remembered: asked again next launch
+
+
+def test_update_is_silent_when_offline_or_store(api, monkeypatch):
+    from personal_warehouse import updater
+    monkeypatch.setattr(updater, "check", lambda: {"status": "error", "release": None, "error": "offline"})
+    assert api.check_updates(False)["status"] == "skip"
+    assert api.check_updates(True)["ok"] is False
+    monkeypatch.setattr(updater, "is_store_package", lambda: True)
+    assert api.check_updates(False)["status"] == "skip"
+    assert api.check_updates(True)["status"] == "store"
+
+
+def test_update_download_then_install(api, monkeypatch, tmp_path):
+    import time
+    from personal_warehouse import updater
+    api._window = type("W", (), {"destroy": lambda self: closed.append(1)})()
+    closed, launched = [], []
+    monkeypatch.setattr(updater, "can_self_update", lambda: True)
+    monkeypatch.setattr(updater, "update_dir", lambda: tmp_path)
+    monkeypatch.setattr(updater, "check", lambda: {"status": "new", "release": _release(), "error": ""})
+    monkeypatch.setattr(updater, "launch_installer", launched.append)
+
+    def fake_download(url, dest, sha256="", size=0, progress=None, cancelled=None, **kw):
+        dest.write_bytes(b"MZ")
+        progress(2, 2)
+        return dest
+    monkeypatch.setattr(updater, "download", fake_download)
+    assert api.update_install()["ok"] is False                 # nothing downloaded yet
+    api.check_updates(False)
+    assert api.update_start()["ok"]
+    for _ in range(50):
+        st = api.update_status()
+        if st["finished"]:
+            break
+        time.sleep(0.05)
+    assert st["finished"] and not st["error"] and st["percent"] == 100
+    r = api.update_install()
+    assert r["ok"] and len(launched) == 1 and launched[0].endswith("PersonalWarehouse-Setup-9.9.9.exe")
+    time.sleep(1.2)
+    assert closed == [1]                                       # the app closes itself so the installer can replace files
+
+
+def test_update_download_failure_and_cancel(api, monkeypatch, tmp_path):
+    import time
+    from personal_warehouse import updater
+    api._window = object()
+    monkeypatch.setattr(updater, "can_self_update", lambda: True)
+    monkeypatch.setattr(updater, "update_dir", lambda: tmp_path)
+    monkeypatch.setattr(updater, "check", lambda: {"status": "new", "release": _release(), "error": ""})
+
+    def boom(*a, **k):
+        raise ValueError("Downloaded file failed the SHA-256 check")
+    monkeypatch.setattr(updater, "download", boom)
+    api.check_updates(False)
+    api.update_start()
+    for _ in range(50):
+        st = api.update_status()
+        if st["finished"]:
+            break
+        time.sleep(0.05)
+    assert "SHA-256" in st["error"]
+    assert api.update_install()["ok"] is False                 # a failed download is never installed

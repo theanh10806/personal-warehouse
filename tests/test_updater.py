@@ -73,3 +73,102 @@ def test_check_new_current_error(monkeypatch):
     monkeypatch.setattr(updater, "fetch_latest", boom)
     res = updater.check("o/r", current="3.0.0")
     assert res["status"] == "error" and "offline" in res["error"]
+
+
+# ---------------------------------------------------------------------------------------------- self-update
+import hashlib  # noqa: E402
+
+GOOD = b"MZ" + b"x" * 200_000
+
+
+class FakeResp:
+    def __init__(self, data, url="https://objects.githubusercontent.com/x.exe", length=True):
+        self._data, self._pos, self._url = data, 0, url
+        self.headers = {"Content-Length": str(len(data))} if length else {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def geturl(self):
+        return self._url
+
+    def read(self, n):
+        chunk = self._data[self._pos:self._pos + n]
+        self._pos += len(chunk)
+        return chunk
+
+
+def _opener(data, **kw):
+    return lambda req, timeout=None: FakeResp(data, **kw)
+
+
+GH = "https://github.com/o/r/releases/download/v3.1.0/PersonalWarehouse-Setup-3.1.0.exe"
+
+
+def test_parse_release_carries_checksum_and_size():
+    sha = hashlib.sha256(GOOD).hexdigest()
+    rel = updater.parse_release(_payload(assets=[{"name": "PersonalWarehouse-Setup-3.1.0.exe", "size": len(GOOD),
+                                                  "digest": "sha256:" + sha, "browser_download_url": GH}]))
+    assert rel["sha256"] == sha and rel["size"] == len(GOOD)
+    bad = updater.parse_release(_payload(assets=[{"name": "A-Setup.exe", "digest": "md5:abc", "browser_download_url": GH}]))
+    assert bad["sha256"] == "" and bad["size"] == 0
+
+
+def test_download_ok_reports_progress(tmp_path):
+    seen = []
+    dest = updater.download(GH, tmp_path / "s.exe", hashlib.sha256(GOOD).hexdigest(), len(GOOD),
+                            progress=lambda d, t: seen.append((d, t)), _open=_opener(GOOD))
+    assert dest.read_bytes() == GOOD and not (tmp_path / "s.exe.part").exists()
+    assert seen[-1] == (len(GOOD), len(GOOD))
+
+
+@pytest.mark.parametrize("data,kw,msg", [
+    (GOOD, {"sha256": "0" * 64}, "SHA-256"),
+    (GOOD, {"size": 5}, "size"),
+    (b"<html>not an exe</html>", {}, "not a Windows program"),
+    (b"", {}, "empty"),
+])
+def test_download_rejects_bad_files_and_leaves_nothing(tmp_path, data, kw, msg):
+    with pytest.raises(ValueError, match=msg):
+        updater.download(GH, tmp_path / "s.exe", _open=_opener(data), **kw)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_refuses_foreign_or_insecure_urls(tmp_path):
+    with pytest.raises(ValueError):
+        updater.download("https://evil.example/a.exe", tmp_path / "s.exe", _open=_opener(GOOD))
+    with pytest.raises(ValueError, match="insecure"):
+        updater.download(GH, tmp_path / "s.exe", _open=_opener(GOOD, url="http://plain.example/a.exe"))
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_can_be_cancelled(tmp_path):
+    with pytest.raises(InterruptedError):
+        updater.download(GH, tmp_path / "s.exe", cancelled=lambda: True, _open=_opener(GOOD))
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_installer_command_is_silent_and_relaunches():
+    cmd = updater.installer_command("C:/t/Setup.exe")
+    assert cmd[0] == "C:/t/Setup.exe" and "/SILENT" in cmd and "/RELAUNCH=1" in cmd and "/CLOSEAPPLICATIONS" in cmd
+
+
+def test_launch_installer_needs_a_real_exe(tmp_path):
+    with pytest.raises(ValueError):
+        updater.launch_installer(tmp_path / "missing.exe")
+    txt = tmp_path / "a.txt"
+    txt.write_text("x")
+    with pytest.raises(ValueError):
+        updater.launch_installer(txt)
+
+
+def test_store_package_detection(monkeypatch):
+    monkeypatch.setattr(updater.sys, "platform", "win32")
+    monkeypatch.setattr(updater.sys, "executable", r"C:\Program Files\WindowsApps\PW_3.1.0.0_x64__abc\PersonalWarehouse.exe")
+    assert updater.is_store_package() and not updater.can_self_update()
+    monkeypatch.setattr(updater.sys, "executable", r"C:\Users\me\AppData\Local\Programs\Personal Warehouse\PersonalWarehouse.exe")
+    monkeypatch.setattr(updater.sys, "frozen", True, raising=False)
+    assert not updater.is_store_package() and updater.can_self_update()
