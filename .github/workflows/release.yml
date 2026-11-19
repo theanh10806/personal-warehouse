@@ -21,7 +21,7 @@ jobs:
       - name: Tag must match the version in the code
         shell: pwsh
         run: |
-          python -m pip install -e ".[dev]"
+          python -m pip install -e ".[dev,excel]"
           $v = python -c "from personal_warehouse import __version__; print(__version__)"
           if ("v$v" -ne "${{ github.ref_name }}") {
             Write-Error "Tag ${{ github.ref_name }} does not match __version__ $v"
