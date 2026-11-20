@@ -151,7 +151,8 @@ def test_labels_export_backup(api, data_dir, monkeypatch):
     assert r["ok"] and opened and "labels_" in opened[0]
     assert api.print_labels([iid] * 9, {"kind": "barcode", "copies": 300})["needs_confirm"]
     r = api.export_excel()
-    assert r["ok"] and (data_dir / "Export").glob("*.xlsx")
+    assert r["ok"], r
+    assert list((data_dir / "Export").glob("*.xlsx"))
     assert api.backup_all()["ok"]
 
 
