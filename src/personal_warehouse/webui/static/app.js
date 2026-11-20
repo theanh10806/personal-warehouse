@@ -41,15 +41,21 @@ const S = {
 };
 const PAGES = [
   ['dashboard', 'grid', 'nav_dashboard'], ['inventory', 'box', 'nav_inventory'], ['item', 'tag', 'nav_item'],
-  ['movement', 'mv', 'nav_move'], ['scan', 'scan', 'nav_scan'], ['locations', 'map', 'nav_map'], ['settings', 'cog', 'nav_settings'],
+  ['movement', 'mv', 'nav_move'], ['scan', 'scan', 'nav_scan'], ['locations', 'map', 'nav_map'], ['history', 'clock', 'nav_history'], ['about', 'heart', 'nav_about'], ['settings', 'cog', 'nav_settings'],
 ];
 
 /* ------------------------------------------------------------------ toasts and dialogs */
-function toast(msg, kind = '', ms = 6000) {
+function toast(msg, kind = '', ms = 6000, action = null) {      // action: {label, fn}
   if (!msg) return;
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
   el.textContent = msg;
+  if (action) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn small'; b.textContent = action.label; b.style.marginInlineStart = '8px'; b.style.whiteSpace = 'nowrap';
+    b.onclick = () => { el.remove(); action.fn(); };
+    el.appendChild(b);
+  }
   $('#toasts').appendChild(el);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
   setTimeout(() => el.remove(), ms);
@@ -100,6 +106,12 @@ function applyShell() {
   root.lang = B.lang; root.dir = B.rtl ? 'rtl' : 'ltr'; root.dataset.theme = B.theme;
   document.title = t('app_name');
   $('#brandName').textContent = t('app_name');
+  if (!window.__brandIcon) {                                   // use the real app icon when static/icon.png exists
+    window.__brandIcon = true;
+    const im = new Image();
+    im.onload = () => { const m = $('.logo-mark'); if (m) { m.innerHTML = '<img alt="" src="icon.png">'; m.style.background = 'transparent'; } };
+    im.src = 'icon.png';
+  }
   $('#brandSub').textContent = t('brand_sub');
   $('#sideFoot').textContent = t('nav_hint');
   $('#searchInput').placeholder = t('top_search');
@@ -309,8 +321,16 @@ async function deleteItems(ids, after) {
     r = await api.delete_items(ids, true);
   }
   if (!(await ok(r))) return;
-  toast(r.message, 'ok', 9000);
   S.checked.clear(); S.selected = null;
+  toast(r.message, 'ok', 20000, {label: t('btn_undo'), fn: async () => {
+    let last = null;
+    for (const id of r.undo_ids.slice().reverse()) {
+      last = await api.history_undo(id, true);
+      if (!(await ok(last))) return;
+    }
+    toast(last.message, 'ok');
+    go(S.page === 'item' ? 'inventory' : S.page);
+  }});
   after();
 }
 
@@ -361,6 +381,7 @@ RENDER.item = async (opts, live) => {
     if (!(await ok(r))) return go('inventory');
     item = r.item; photo = r.photo; svg = r.barcode_svg;
   }
+  if (opts.id) S.carry = null;
   S.item = {id: item ? item.id : null, photoNew: null, photoRemove: false, photoCurrent: item ? item.photo_path : null, code: item ? item.item_code : ''};
   const sel = (key, list) => `<select class="in" id="f_${key}" data-loc>${list.map(o => {
     const v = o.value ?? o, l = o.label ?? o; return `<option value="${esc(v)}">${esc(l)}</option>`; }).join('')}</select>`;
@@ -372,20 +393,25 @@ RENDER.item = async (opts, live) => {
     else if (kind === 'unit') ctl = sel(key, B.units);
     else if (kind === 'tr') ctl = `<div class="row-inline"><input class="in" id="f_${key}" ${B.lang === 'ar' ? 'dir="rtl"' : ''}><button type="button" class="btn small" data-act="translate">${icon('globe')}${esc(t('btn_translate'))}</button></div>`;
     else if (kind === 'num') ctl = `<input class="in" id="f_${key}" inputmode="decimal" autocomplete="off">`;
-    else ctl = `<input class="in" id="f_${key}" autocomplete="off">`;
+    else ctl = `<input class="in" id="f_${key}" autocomplete="off" ${['name', 'category', 'engine_application', 'supplier'].includes(key) ? `list="dl_${key}"` : ''}>`;
     return `<label class="fld">${esc(t(label))}${ctl}</label>`;
   };
-  $('#content').innerHTML = head(item ? t('form_edit', item.item_code) : t('form_new'), '') +
+  const sg = (await api.suggestions()).lists || {};
+  if (!live()) return;
+  const dl = ['name', 'category', 'engine_application', 'supplier'].map(k =>
+    `<datalist id="dl_${k}">${(sg[k] || []).map(v => `<option value="${esc(v)}">`).join('')}</datalist>`).join('');
+  $('#content').innerHTML = head(item ? t('form_edit', item.item_code) : t('form_new'), '') + dl +
     `<p class="sub" id="locPrev" style="margin-top:-8px"></p>
+    <p class="sub" style="margin:-6px 0 10px;opacity:.8">${esc(t('entry_hint'))}</p>
     <div class="form-layout"><div class="card"><div class="fields">${FIELDS.map(cell).join('')}</div></div>
       <div class="card"><p class="side-title">${esc(t('photo_title'))}</p><div class="photo" id="photoBox"></div>
         <div class="stack">${btnHtml(t('choose_photo'), 'choose-photo', 'block', 'img')}${btnHtml(t('remove_photo'), 'remove-photo', 'block')}</div>
         <p class="side-title" style="margin:16px 0 8px">${esc(t('bc_preview'))}</p><div class="bcprev" id="bcBox"></div></div></div>
-    <div class="actions">${btnHtml(t('btn_save'), 'save-item', 'success', 'check')}${btnHtml(t('btn_clear'), 'clear-item')}
+    <div class="actions">${btnHtml(t('btn_save'), 'save-item', 'success', 'check')}${item ? '' : btnHtml(t('btn_save_next'), 'save-item-next', 'primary', 'check')}${btnHtml(t('btn_clear'), 'clear-item')}
       ${btnHtml(t('btn_print_one'), 'print-one', '', 'print')}${item ? btnHtml(t('btn_delete'), 'delete-one', 'danger', 'trash') : ''}${btnHtml(t('btn_back'), 'go-inventory', 'ghost')}</div>`;
   for (const [key, , kind] of FIELDS) {
     const el = $('#f_' + key);
-    let v = item ? item[key] : (DEFAULTS[key] ?? '');
+    let v = item ? item[key] : (S.carry?.[key] ?? DEFAULTS[key] ?? '');
     el.value = v ?? '';
     if (el.tagName === 'SELECT' && v && el.value !== String(v)) {       // value no longer in the list (old location)
       el.insertAdjacentHTML('afterbegin', `<option value="${esc(v)}">${esc(v)}</option>`);
@@ -408,7 +434,8 @@ function updateLoc() {
 const setPhoto = uri => { const b = $('#photoBox'); if (b) b.innerHTML = uri ? `<img alt="" src="${uri}">` : esc(t('no_photo')); };
 const setBarcode = svg => { const b = $('#bcBox'); if (b) b.innerHTML = svg ? `${svg}<small>${esc(S.item.code)}</small>` : esc(t('bc_none')); };
 
-async function saveItem() {
+const CARRY_KEYS = ['section', 'part', 'category', 'condition', 'unit', 'supplier', 'engine_application', 'min_stock'];
+async function saveItem(addAnother = false) {
   const v = {id: S.item.id, photo_path: S.item.photoNew, photo_remove: S.item.photoRemove, current_photo: S.item.photoCurrent, confirmed: []};
   FIELDS.forEach(([k]) => { v[k] = $('#f_' + k).value; });
   if (S.item.id) v.quantity = '0';
@@ -427,6 +454,12 @@ async function saveItem() {
       return;
     }
     toast(r.message, 'ok');
+    if (addAnother === true && !S.item.id) {               // keep what usually repeats, clear the rest, stay in the form
+      S.carry = {};
+      CARRY_KEYS.forEach(k => { S.carry[k] = v[k]; });
+      return go('item');
+    }
+    S.carry = null;
     return go('inventory');
   }
 }
@@ -447,7 +480,7 @@ RENDER.movement = async (opts, live) => {
       <label class="fld"><span id="mvQtyLbl">${esc(t('mv_qty'))}</span><input class="in" id="mvQty" inputmode="decimal" autocomplete="off"></label>
       <label class="fld">${esc(t('mv_price'))}<input class="in" id="mvPrice" inputmode="decimal" autocomplete="off"></label>
       <label class="fld">${esc(t('mv_reason'))}<input class="in" id="mvReason" autocomplete="off"></label>
-    </div><div class="info-line" id="mvInfo">${esc(t('mv_pick'))}</div>
+    </div><div class="info-line" id="mvInfo">${esc(t('mv_pick'))}</div><p class="sub" style="margin:8px 0 0;opacity:.8">${esc(t('mv_hint'))}</p>
     <div class="actions" style="margin-top:14px">${btnHtml(t('mv_save'), 'save-move', 'primary', 'check')}</div></div>
     <div class="card"><div class="card-head"><h3>${esc(t('mv_history'))}</h3>
       <label class="check"><input class="cb" type="checkbox" id="mvOnly" ${S.mv.onlyItem ? 'checked' : ''}>${esc(t('mv_only'))}</label></div>
@@ -566,27 +599,238 @@ async function doScan(text) {
 }
 
 /* ------------------------------------------------------------------ storage map */
-const cellHtml = c => `<button type="button" class="cell ${c.n ? 'occ' : ''}" data-act="open-loc" data-code="${esc(c.code)}"><b>${esc(c.code)}</b><span>${c.n} ${esc(t('ui_items_unit'))}</span><span>${esc(c.units)} ${esc(t('ui_units_unit'))}</span></button>`;
+/* Fixed 3 sections x 8 parts. Two views of the same data: a floor plan (3 rows x 8 columns that always fills the
+   page) and a 3D scene (CSS transforms, drag to rotate). Clicking a cell shows its items underneath. */
+const MAP_ROT = {rx: 56, rz: -22};
+const MAP = {view: 'flat', sel: '', data: null, reqSel: 0, ...MAP_ROT};
+const lvlOf = (n, max) => n <= 0 ? 0 : Math.min(4, 1 + Math.floor((n - 1) / Math.max(1, Math.ceil(max / 4))));
+const cellTip = c => [c.code, `${c.n} ${t('ui_items_unit')} · ${c.units} ${t('ui_units_unit')}`, ...c.names].join('\n');
+const mapCell = (c, max) => `<button type="button" class="mcell lv${lvlOf(c.n, max)} ${MAP.sel === c.code ? 'on' : ''}" data-act="map-pick" data-code="${esc(c.code)}" title="${esc(cellTip(c))}">
+  ${c.low ? '<i class="dot" aria-hidden="true"></i>' : ''}<b>${esc(c.code)}</b>
+  <span class="big">${c.n}</span><span class="small">${esc(t('ui_items_unit'))}</span>
+  <span class="small">${esc(c.units)} ${esc(t('ui_units_unit'))}</span></button>`;
+
+function mapFlat(d, max) {
+  return `<div class="mzones">${d.sections.map(z => `<div class="mzone card">
+    <div class="mz-head"><h3>${esc(t('section_big', z.section))}</h3>
+      <span class="chip ${z.used ? 'ok' : ''}">${esc(t('map_zone_stat', z.used, z.cells.length))}</span>
+      <small>${z.n} ${esc(t('ui_items_unit'))} · ${esc(z.units)} ${esc(t('ui_units_unit'))}</small></div>
+    <div class="mcells">${z.cells.map(c => mapCell(c, max)).join('')}</div></div>`).join('')}</div>`;
+}
+
+function map3d(d, max) {
+  const CW = 78, GAP = 10, cols = d.sections[0].cells.length, rows = d.sections.length;
+  const W = cols * CW + (cols - 1) * GAP, H = rows * CW + (rows - 1) * GAP;
+  const boxes = d.sections.map((z, r) => z.cells.map((c, k) => {
+    const h = c.n ? 18 + Math.round(c.n / Math.max(1, max) * 86) : 3;
+    return `<div class="bx lv${lvlOf(c.n, max)} ${MAP.sel === c.code ? 'on' : ''} ${c.low ? 'low' : ''}" data-act="map-pick" data-code="${esc(c.code)}"
+      style="--x:${k * (CW + GAP)}px;--y:${r * (CW + GAP)}px;--h:${h}px;--w:${CW}px" title="${esc(cellTip(c))}">
+      <i class="f t"><b>${esc(c.code)}</b><em>${c.n}</em></i><i class="f s1"></i><i class="f s2"></i><i class="f s3"></i><i class="f s4"></i></div>`;
+  }).join('')).join('');
+  const rowLabels = d.sections.map((z, r) => `<span class="rl" style="--y:${r * (CW + GAP) + CW / 2}px">${esc(z.section)}</span>`).join('');
+  return `<div class="m3d card" dir="ltr"><div class="m3-bar"><small>${esc(t('map_3d_hint'))}</small>
+      <span><button type="button" class="btn small" data-act="map-angle" data-v="iso">${esc(t('map_3d_reset'))}</button>
+      <button type="button" class="btn small" data-act="map-angle" data-v="top">${esc(t('map_3d_top'))}</button></span></div>
+    <div class="m3-view" id="m3View"><div class="m3-scene" id="m3Scene" style="--W:${W}px;--H:${H}px">
+      <div class="m3-floor"></div>${rowLabels}${boxes}</div></div></div>`;
+}
+
+function mapFit(rx = MAP.rx, rz = MAP.rz) {                 // scale the fixed-size scene to fit the view at the given angle
+  const v = $('#m3View'), sc = $('#m3Scene');
+  if (!v || !sc) return;
+  const W = parseFloat(sc.style.getPropertyValue('--W')), H = parseFloat(sc.style.getPropertyValue('--H'));
+  const r = Math.PI / 180, cz = Math.abs(Math.cos(rz * r)), sz = Math.abs(Math.sin(rz * r));
+  const pw = (W + 56) * cz + (H + 32) * sz;                   // projected width / height of the floor plate (+ column height)
+  const ph = ((W + 56) * sz + (H + 32) * cz) * Math.cos(rx * r) + 110 * Math.sin(rx * r);
+  v.style.setProperty('--k', Math.max(0.4, Math.min(1.8, Math.min(v.clientWidth / (pw + 40), v.clientHeight / (ph + 30)))));
+}
+function mapApplyAngle() {
+  const sc = $('#m3Scene');
+  if (sc) sc.style.transform = `translate(-50%,-50%) scale(var(--k,1)) rotateX(${MAP.rx}deg) rotateZ(${MAP.rz}deg)`;
+}
+
+async function mapDetail() {
+  const box = $('#mapDetail');
+  if (!box) return;
+  if (!MAP.sel) { box.innerHTML = `<p class="muted pad">${esc(t('map_pick'))}</p>`; return; }
+  const code = MAP.sel, my = ++MAP.reqSel;
+  const c = MAP.data.sections.flatMap(z => z.cells).find(x => x.code === code);
+  const r = await api.inventory({location: 'loc:' + code});
+  if (my !== MAP.reqSel || !$('#mapDetail')) return;
+  const rows = r.ok ? r.rows : [];
+  const body = rows.length ? `<div class="table-wrap" style="max-height:none"><table><tbody>${rows.slice(0, 8).map(x =>
+    `<tr data-act="edit" data-id="${x.id}" style="cursor:pointer"><td class="clip"><b>${esc(x.name)}</b></td><td class="muted">${esc(x.code)}</td>
+     <td class="num">${esc(x.qty)}</td><td>${x.state === 'out' || x.state === 'low' ? `<span class="chip bad">${esc(t(x.state === 'out' ? 'health_out' : 'health_low'))}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>
+    ${rows.length > 8 ? `<p class="muted pad">${esc(t('map_more', rows.length - 8))}</p>` : ''}`
+    : `<p class="muted pad">${esc(t('map_empty_cell'))}</p>`;
+  box.innerHTML = `<div class="card-head"><h3>${esc(code)} <small class="muted">· ${c ? c.n : 0} ${esc(t('ui_items_unit'))} · ${c ? esc(c.units) : 0} ${esc(t('ui_units_unit'))}</small></h3>
+    ${btnHtml(t('map_open'), 'open-loc', 'primary', 'box', `data-code="${esc(code)}"`)}</div>${body}`;
+}
+
+function mapRender() {
+  const d = MAP.data, max = d.total.max_n, tt = d.total;
+  const stat = (ic, tone, label, v, sub = '') => `<div class="card kpi"><div class="top"><div class="glyph tone-${tone}">${icon(ic)}</div></div>
+    <div class="label">${esc(label)}</div><div class="value">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  const pills = [['flat', t('map_view_flat')], ['3d', t('map_view_3d')]].map(([v, l]) =>
+    `<button type="button" class="pill ${MAP.view === v ? 'on' : ''}" data-act="map-view" data-v="${v}">${esc(l)}</button>`).join('');
+  const legend = `<div class="mlegend"><span>${esc(t('map_legend_empty'))}</span>${[0, 1, 2, 3, 4].map(i => `<i class="sw lv${i}"></i>`).join('')}<span>${esc(t('map_legend_more'))}</span>
+    <span class="lg-low"><i class="dot" aria-hidden="true"></i>${esc(t('map_legend_low'))}</span></div>`;
+  $('#content').innerHTML = head(t('map_title'), t('map_sub'), `<div class="switch-row">${pills}</div>`) +
+    `<section class="grid kpis mstats">${stat('map', 'teal', t('map_stat_used'), `${tt.used}<small>/${tt.slots}</small>`)}
+      ${stat('grid', 'yellow', t('map_stat_free'), tt.slots - tt.used)}
+      ${stat('box', 'lilac', t('map_stat_items'), tt.items)}
+      ${stat('alert', tt.low ? 'red' : 'teal', t('map_stat_low'), tt.low)}</section>` +
+    (MAP.view === '3d' ? map3d(MAP.data, max) : mapFlat(MAP.data, max)) + legend +
+    `<div class="card" id="mapDetail"></div>` +
+    (MAP.data.legacy.length ? `<div class="card"><p class="sec-title">${esc(t('loc_legacy'))}</p>
+      <p class="sub" style="margin:-4px 0 10px">${esc(t('loc_legacy_hint'))}</p><div class="mcells">${MAP.data.legacy.map(c => mapCell(c, max)).join('')}</div></div>` : '');
+  if (MAP.view === '3d') { MAP.rx = MAP_ROT.rx; MAP.rz = MAP_ROT.rz; mapFit(); mapApplyAngle(); }
+  mapDetail();
+}
+
 RENDER.locations = async (_, live) => {
   const r = await api.locations();
   if (!live()) return;
   if (!(await ok(r))) return;
-  $('#content').innerHTML = head(t('map_title'), t('map_sub')) + `<section class="grid map">${r.sections.map(s => `<div class="card">
-    <p class="sec-title">${esc(t('section_big', s.section))}</p><div class="cells">${s.cells.map(cellHtml).join('')}
-    </div></div>`).join('')}</section>` + (r.legacy.length ? `<div class="card"><p class="sec-title">${esc(t('loc_legacy'))}</p>
-    <p class="sub" style="margin:-4px 0 10px">${esc(t('loc_legacy_hint'))}</p><div class="cells">${r.legacy.map(cellHtml).join('')}</div></div>` : '');
+  MAP.data = r;
+  if (MAP.sel && !r.sections.some(z => z.cells.some(c => c.code === MAP.sel)) && !r.legacy.some(c => c.code === MAP.sel)) MAP.sel = '';
+  mapRender();
 };
 
+(() => {                                                    // drag-to-rotate and resize for the 3D scene
+  let drag = null;
+  document.addEventListener('pointerdown', e => {
+    const v = e.target.closest('#m3View');
+    if (v) drag = {x: e.clientX, y: e.clientY, rx: MAP.rx, rz: MAP.rz, moved: false, id: e.pointerId};
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+    drag.moved = true;
+    MAP.rz = drag.rz + dx * 0.4;
+    MAP.rx = Math.max(0, Math.min(80, drag.rx - dy * 0.3));
+    mapApplyAngle();
+  });
+  const end = () => { if (drag && drag.moved) window.__mapDragged = Date.now(); drag = null; };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  window.addEventListener('resize', () => { if (S.page === 'locations') { mapFit(MAP_ROT.rx, MAP_ROT.rz); if (MAP.rx === MAP_ROT.rx && MAP.rz === MAP_ROT.rz) return; mapFit(); } });
+})();
+
+/* ------------------------------------------------------------------ about / feedback / support */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (_) {                                              // file:// pages may not be allowed to use the clipboard API
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast(t('fb_copied'), 'ok', 2500);
+}
+function openUrl(r) { if (r.open_in_js && r.url) window.open(r.url, '_blank'); }
+RENDER.about = async (_, live) => {
+  const a = await api.about_info();
+  if (!live()) return;
+  if (!(await ok(a))) return;
+  const row = (k, v) => `<tr><td style="white-space:nowrap;font-weight:600;padding-inline-end:16px">${esc(k)}</td><td>${v}</td></tr>`;
+  const donate = (a.donate || []).map(d => `<tr><td style="white-space:nowrap;font-weight:600;padding-inline-end:16px">${esc(d.label)}</td>
+    <td class="clip" style="user-select:all">${esc(d.value)}</td><td style="text-align:end">${btnHtml(t('dn_copy'), 'copy-text', '', '', `data-text="${esc(d.value)}"`)}</td></tr>`).join('');
+  $('#content').innerHTML = head(t('nav_about'), t('ab_sub')) + `
+    <div class="card"><h3>${esc(t('ab_about'))}</h3>
+      <p class="sub" style="margin-bottom:10px">${esc(t('ab_desc'))}</p>
+      <table><tbody>${row(t('ab_version'), esc(a.version))}${a.author ? row(t('ab_author'), esc(a.author)) : ''}
+        ${row(t('ab_contact'), `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`)}</tbody></table>
+      <div class="actions" style="margin-top:12px">${btnHtml(t('ab_github'), 'open-link', '', '', 'data-key="github"')}${btnHtml(t('ab_issues'), 'open-link', '', '', 'data-key="issues"')}</div>
+      <p class="sub" style="margin-top:12px;opacity:.8">${esc(t('ab_privacy'))}</p></div>
+    <div class="card"><h3>${esc(t('fb_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('fb_hint', a.email))}</p>
+      <div class="stack" style="gap:10px">
+        <label class="fld">${esc(t('fb_kind'))}<select class="in" id="fbKind">${a.kinds.map(k => `<option value="${k.value}">${esc(k.label)}</option>`).join('')}</select></label>
+        <label class="fld">${esc(t('fb_msg'))}<textarea class="in" id="fbMsg" maxlength="1200" ${B.lang === 'ar' ? 'dir="rtl"' : ''}></textarea></label>
+        <label class="fld">${esc(t('fb_contact'))}<input class="in" id="fbContact" autocomplete="off"></label>
+        <label class="check"><input class="cb" type="checkbox" id="fbInfo" checked>${esc(t('fb_info'))}</label></div>
+      <div class="actions" style="margin-top:12px">${btnHtml(t('fb_send_mail'), 'fb-send', 'primary', 'mail', 'data-via="mail"')}${btnHtml(t('fb_send_gmail'), 'fb-send', '', 'mail', 'data-via="gmail"')}${btnHtml(t('fb_copy'), 'fb-copy')}</div></div>
+    <div class="card"><h3>${esc(t('dn_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('dn_text'))}</p>
+      <div id="qrBox"></div>
+      ${donate ? `<table><tbody>${donate}</tbody></table>` : `<p class="sub" id="dnNone">${esc(t('dn_none'))}</p>`}</div>`;
+  const im = new Image();                                  // optional QR picture: static/donate_qr.png
+  im.onload = () => { $('#qrBox').innerHTML = `<img class="qr" alt="QR" src="donate_qr.png">`; $('#dnNone')?.remove(); };
+  im.src = 'donate_qr.png';
+};
+async function sendFeedback(via) {
+  const r = await api.feedback_send($('#fbKind').value, $('#fbMsg').value, $('#fbContact').value, $('#fbInfo').checked, via);
+  if (r.ok === false && r.copy) { await copyText(r.copy); }
+  if (!(await ok(r))) return;
+  openUrl(r);
+  if (r.message) toast(r.message, 'ok', 12000);
+}
+async function copyFeedback() {
+  const msg = $('#fbMsg').value.trim();
+  if (!msg) { await alertBox(t('fb_title'), t('fb_empty')); return; }
+  const c = $('#fbContact').value.trim();
+  await copyText(`[Personal Warehouse ${B.version}] ${$('#fbKind').selectedOptions[0].textContent}\n\n${msg}${c ? `\n\nContact: ${c}` : ''}`);
+}
+
+/* ------------------------------------------------------------------ change history (undo) */
+RENDER.history = async (_, live) => {
+  const r = await api.history_list();
+  if (!live()) return;
+  if (!(await ok(r))) return;
+  const actName = a => t('hx_act_' + a);
+  $('#content').innerHTML = head(t('nav_history'), t('hx_sub')) + `<div class="card" style="padding:0"><div class="table-wrap" style="max-height:none">` +
+    (r.rows.length ? `<table><thead><tr><th>${esc(t('hx_col_when'))}</th><th>${esc(t('hx_col_what'))}</th><th>${esc(t('hx_col_item'))}</th>
+    <th>${esc(t('hx_col_detail'))}</th><th></th></tr></thead><tbody>${r.rows.map(h => `<tr>
+    <td class="muted" style="white-space:nowrap">${esc(h.ts)}</td><td>${esc(actName(h.action))}</td><td class="clip">${esc(h.label)}</td>
+    <td class="clip">${esc(h.detail)}</td><td style="text-align:end">${h.undone ? `<span class="muted">${esc(t('hx_btn_undone'))}</span>`
+      : btnHtml(t('hx_btn'), 'undo', '', '', `data-id="${h.id}"`)}</td></tr>`).join('')}</tbody></table>`
+      : `<div class="empty-note" style="padding:40px">${esc(t('ui_nodata'))}</div>`) + `</div></div>`;
+};
+async function undoEntry(id) {
+  let r = await api.history_undo(id, false);
+  if (r.needs_confirm) {
+    if (!(await confirmBox(r.title, r.message))) return;
+    r = await api.history_undo(id, true);
+  }
+  if (!(await ok(r))) return;
+  toast(r.message, 'ok');
+  go('history');
+}
+
 /* ------------------------------------------------------------------ settings */
-RENDER.settings = async () => {
+RENDER.settings = async (_, live) => {
+  const rp = await api.restore_points();
+  if (!live()) return;
+  const stt = rp.status || {};
+  const offLine = stt.offsite ? (stt.offsite_ok ? t('rp_status_off_ok', stt.offsite) : t('rp_status_off_warn', stt.offsite_days))
+    : t('rp_status_off_never');
+  const loc = await api.data_locations();
+  if (!live()) return;
+  const locHtml = `<div class="card"><h3>${esc(t('loc_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('loc_intro'))}</p>
+    ${loc.cloud_warning ? `<p class="pre" style="margin:0 0 10px;color:var(--red,#c0392b);font-weight:600">${esc(loc.cloud_warning)}</p>` : ''}
+    <div class="table-wrap" style="max-height:none"><table><tbody>${(loc.rows || []).map(x => `<tr>
+      <td style="white-space:nowrap;font-weight:600">${esc(x.label)}</td>
+      <td><div class="clip" style="user-select:all">${esc(x.path)}</div><div class="muted" style="font-size:12px">${esc(x.hint)}${x.key !== 'root' && x.exists ? ' — ' + esc(t('loc_files', x.files, x.size)) : ''}</div></td>
+      <td style="text-align:end">${btnHtml(t('loc_open'), 'open-folder', '', 'map', `data-key="${x.key}"`)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="actions" style="margin-top:12px">${btnHtml(t('loc_move'), 'move-data', '')}</div></div>`;
+  const rpHtml = `<div class="card"><h3>${esc(t('rp_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('rp_hint'))}</p>
+    <p class="pre" style="margin:0 0 4px;color:var(--muted)">${esc(t('rp_status_local', stt.local || '-'))}</p>
+    <p class="pre" style="margin:0 0 12px;${stt.offsite_ok ? 'color:var(--muted)' : 'color:var(--red,#c0392b);font-weight:600'}">${esc(offLine)}</p>
+    <div class="table-wrap" style="max-height:260px"><table><tbody>${(rp.rows || []).slice(0, 15).map(x => `<tr>
+      <td class="muted" style="white-space:nowrap">${esc(x.when)}</td><td>${esc(x.kind_label)}</td>
+      <td>${x.items == null ? '' : esc(t('rp_items', x.items))}</td><td class="clip">${esc(x.name)}</td>
+      <td style="text-align:end">${btnHtml(t('rp_btn'), 'rp-restore', '', '', `data-name="${esc(x.name)}"`)}</td></tr>`).join('')}</tbody></table></div></div>`;
   const pills = (list, cur, act) => `<div class="switch-row">${list.map(([v, l]) => `<button type="button" class="pill ${v === cur ? 'on' : ''}" data-act="${act}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
   $('#content').innerHTML = head(t('set_title'), t('set_sub')) + `
     <div class="card"><div class="set-row"><b>${esc(t('set_lang'))}</b>${pills(Object.entries(B.langs), B.lang, 'set-lang')}</div>
       <div class="set-row"><b>${esc(t('set_theme'))}</b>${pills([['light', t('theme_light')], ['dark', t('theme_dark')]], B.theme, 'set-theme')}</div>
       <p class="sub">${esc(t('set_rtl'))}</p></div>
     <div class="card"><h3>${esc(t('set_translate'))}</h3><p class="sub" style="margin-bottom:12px">${esc(t('set_translate_hint'))}</p>${btnHtml(t('btn_translate'), 'bulk-translate', 'primary', 'globe')}</div>
-    <div class="card"><p class="pre" style="margin:0 0 12px;color:var(--muted)">${esc(t('data_info', B.data_dir, B.backup_name, B.keep_backups))}</p>
-      <div class="actions">${btnHtml(t('qa_export'), 'export', '', 'down')}${btnHtml(t('qa_backup'), 'backup', '', 'archive')}</div></div>
+    ${locHtml}
+    <div class="card"><div class="actions">${btnHtml(t('qa_export'), 'export', '', 'down')}</div></div>
+    <div class="card"><h3>${esc(t('tx_card'))}</h3><p class="sub" style="margin-bottom:12px">${esc(t('tx_card_hint'))}</p>
+      <div class="actions">${btnHtml(t('tx_btn_export'), 'tx-export', 'primary', 'archive')}${btnHtml(t('tx_btn_restore'), 'tx-restore', '', 'down')}</div>
+      <h3 style="margin-top:20px">${esc(t('tx_sync_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('tx_sync_hint'))} ${esc(t('tx_sync_plain'))}</p>
+      <p class="pre" style="margin:0 0 12px;color:var(--muted)">${esc(B.sync_dir ? t('tx_sync_on', B.sync_dir, B.last_sync || '-') : t('tx_sync_none'))}</p>
+      <div class="actions">${btnHtml(t('tx_btn_sync_pick'), 'sync-pick')}${B.sync_dir ? btnHtml(t('tx_btn_sync_now'), 'sync-now') + btnHtml(t('tx_btn_sync_off'), 'sync-off') : ''}</div></div>
+    ${rpHtml}
     <div class="card"><h3>${esc(t('upd_title'))}</h3><p class="sub" style="margin-bottom:10px">${esc(t('upd_version', B.version))}</p>
       <label class="check" style="margin-bottom:12px"><input class="cb" type="checkbox" id="autoUpd" ${B.auto_update ? 'checked' : ''}>${esc(t('upd_auto'))}</label>
       <div>${btnHtml(t('upd_check'), 'check-updates')}</div></div>`;
@@ -660,6 +904,74 @@ async function backupAll() {
   if (await ok(r)) { toast(r.message, 'ok'); await alertBox(r.title, r.detail); }
 }
 
+/* ------------------------------------------------------------------ move data / online sync */
+async function askPassword(title, body, repeat) {
+  const r = await dialog({title, html: `<div class="body"><p class="sub" style="margin:0 0 10px">${esc(body)}</p>
+    <label class="fld">${esc(t('tx_pw_f1'))}<input class="in" type="password" name="p1" autocomplete="new-password" autofocus></label>
+    ${repeat ? `<label class="fld" style="margin-top:8px">${esc(t('tx_pw_f2'))}<input class="in" type="password" name="p2" autocomplete="new-password"></label>` : ''}</div>`,
+    buttons: [{label: t('btn_cancel'), value: false, cancel: true}, {label: t('ui_ok'), value: true, kind: 'primary', collect: true}]});
+  if (!r || !r.value) return null;
+  if (repeat && r.form.p1 !== r.form.p2) { await alertBox(title, t('tx_pw_mismatch')); return askPassword(title, body, repeat); }
+  return r.form.p1;
+}
+async function txExport() {
+  const pw = await askPassword(t('tx_pw_title'), t('tx_pw_hint'), true);
+  if (pw === null) return;                       // cancelled; an empty password means "no encryption"
+  const r = await api.transfer_export(pw);
+  if (r.cancelled) return;
+  if (await ok(r)) await alertBox(r.title, r.message);
+}
+async function txRestore() {
+  let r = await api.restore_inspect();
+  if (r.cancelled) return;
+  let pw = null;
+  const path = r.path;
+  while (r.needs_password) {
+    pw = await askPassword(r.title, r.message, false);
+    if (!pw) return;
+    r = await api.restore_inspect(path, pw);
+    if (r.ok === false) {                        // wrong password: say so and ask again
+      await ok(r);
+      r = {needs_password: true, title: t('tx_restore_title'), message: t('tx_pw_ask')};
+    }
+  }
+  if (!(await ok(r))) return;
+  if (!(await confirmBox(r.title, r.message, 'danger', t('tx_btn_restore')))) return;
+  const d = await api.restore_apply(r.path, pw);
+  if (!(await ok(d))) return;
+  B = d.bootstrap; applyShell(); go('dashboard');
+  await alertBox(d.title, d.message);
+}
+async function restorePoint(name) {
+  let r = await api.restore_point_apply(name, false);
+  if (r.needs_confirm) {
+    if (!(await confirmBox(r.title, r.message, 'danger', t('rp_btn')))) return;
+    r = await api.restore_point_apply(name, true);
+  }
+  if (!(await ok(r))) return;
+  B = r.bootstrap; applyShell(); go('dashboard');
+  await alertBox(r.title, r.message);
+}
+async function openFolder(key) {
+  const r = await api.open_folder(key);
+  if (!(await ok(r))) return;
+  if (r.message) toast(r.message, 'ok', 8000);
+}
+async function moveData() {
+  const r = await api.data_move();
+  if (r.cancelled) return;
+  if (!(await ok(r))) return;
+  await alertBox(r.title, r.message);
+  api.quit();
+}
+async function txSync(fn) {
+  const r = await api[fn]();
+  if (r.cancelled) return;
+  if (!(await ok(r))) return;
+  if (r.bootstrap) { B = r.bootstrap; if (S.page === 'settings') go('settings'); }
+  if (r.message) toast(r.message, 'ok', 5000);
+}
+
 /* ------------------------------------------------------------------ language / theme */
 async function setLanguage(code) {
   if (code === B.lang) return;
@@ -687,7 +999,13 @@ const ACT = {
   'menu': el => { const p = el.parentElement.querySelector('.pop'); p.hidden = !p.hidden; },
   'labels-all': async () => { await go('inventory'); printFromInventory(); },
   'labels': printFromInventory,
-  'export': exportExcel, 'backup': backupAll,
+  'export': exportExcel, 'backup': () => txExport(),
+  'tx-export': txExport, 'tx-restore': txRestore,
+  'fb-send': el => sendFeedback(el.dataset.via), 'fb-copy': copyFeedback,
+  'copy-text': el => copyText(el.dataset.text), 'open-link': async el => { const r = await api.open_link(el.dataset.key); if (await ok(r)) openUrl(r); },
+  'open-folder': el => openFolder(el.dataset.key), 'move-data': moveData,
+  'undo': el => undoEntry(+el.dataset.id), 'rp-restore': el => restorePoint(el.dataset.name),
+  'sync-pick': () => txSync('sync_choose_folder'), 'sync-now': () => txSync('sync_now'), 'sync-off': () => txSync('sync_off'),
   'clear-search': () => { S.inv.search = ''; $('#fSearch').value = ''; loadInventory(); $('#fSearch').focus(); },
   'more-rows': () => { S.invLimit += 300; drawInventory(); },
   'edit-sel': async () => { const id = await selectedId(); if (id) go('item', {id}); },
@@ -707,7 +1025,7 @@ const ACT = {
     S.item.photoNew = r.path; S.item.photoRemove = false; setPhoto(r.photo);
   },
   'remove-photo': () => { S.item.photoNew = null; S.item.photoRemove = true; setPhoto(''); },
-  'save-item': saveItem,
+  'save-item': () => saveItem(false), 'save-item-next': () => saveItem(true),
   'clear-item': () => go('item'),
   'print-one': async () => { if (!S.item.id) return alertBox(t('lbl_title_msg'), t('lbl_save_first')); printLabels([S.item.id]); },
   'save-move': saveMove,
@@ -721,6 +1039,14 @@ const ACT = {
   'scan-edit': () => S.scan.itemId && go('item', {id: S.scan.itemId}),
   'scan-print': () => S.scan.itemId && printLabels([S.scan.itemId]),
   'open-loc': el => go('inventory', {location: 'loc:' + el.dataset.code}),
+  'map-pick': el => {
+    if (Date.now() - (window.__mapDragged || 0) < 250) return;           // a drag in the 3D view is not a click
+    MAP.sel = MAP.sel === el.dataset.code ? '' : el.dataset.code;
+    $$('[data-act="map-pick"]').forEach(x => x.classList.toggle('on', x.dataset.code === MAP.sel));
+    mapDetail();
+  },
+  'map-view': el => { MAP.view = el.dataset.v; mapRender(); },
+  'map-angle': el => { Object.assign(MAP, el.dataset.v === 'top' ? {rx: 0, rz: 0} : MAP_ROT); mapFit(); mapApplyAngle(); },
   'set-lang': el => setLanguage(el.dataset.v),
   'set-theme': el => setTheme(el.dataset.v),
   'bulk-translate': bulkTranslate,
@@ -775,7 +1101,26 @@ document.addEventListener('change', e => {
 const reloadInv = debounce(() => loadInventory(), 200);
 
 document.addEventListener('focusin', e => { if (e.target.id === 'mvItem') searchItems(); });
+document.addEventListener('focusin', e => {                  // numbers: typing replaces the default 0
+  const el = e.target;
+  if (el.tagName === 'INPUT' && el.closest('#content') && (el.inputMode === 'decimal' || el.id === 'mvQty')) el.select();
+});
 document.addEventListener('keydown', e => {
+  const el = e.target;
+  if (e.key === 'Enter' && !e.shiftKey && !e.altKey && S.page === 'item' && el.closest?.('.fields') && el.tagName !== 'BUTTON') {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) return saveItem(!S.item.id);
+    const fields = $$('.fields input, .fields select').filter(x => !x.disabled && x.offsetParent !== null);
+    const i = fields.indexOf(el);
+    if (i >= 0 && i < fields.length - 1) { fields[i + 1].focus(); }
+    else saveItem(!S.item.id);                                // Enter on the last field saves (and adds another when new)
+    return;
+  }
+  if (e.key === 'Enter' && S.page === 'movement' && ['mvQty', 'mvPrice', 'mvReason', 'mvType'].includes(el.id)) {
+    e.preventDefault();
+    return el.id === 'mvType' ? $('#mvQty').focus() : saveMove();
+  }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && S.page === 'item') { e.preventDefault(); return saveItem(!S.item.id); }
   if (e.target.id === 'mvItem') {
     const list = $('#mvList');
     if (e.key === 'Enter') {
@@ -796,7 +1141,7 @@ document.addEventListener('keydown', e => {
     if (k === 'n') { e.preventDefault(); go('item'); }
     else if (k === 'k') { e.preventDefault(); $('#searchInput').focus(); $('#searchInput').select(); }
     else if (k === 'f') { e.preventDefault(); go('inventory').then(() => $('#fSearch')?.focus()); }
-    else if (k === 's' && S.page === 'item') { e.preventDefault(); saveItem(); }
+    else if (k === 's' && S.page === 'item') { e.preventDefault(); saveItem(false); }
   }
 });
 document.addEventListener('submit', e => {

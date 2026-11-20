@@ -126,10 +126,10 @@ def test_download_ok_reports_progress(tmp_path):
 
 
 @pytest.mark.parametrize("data,kw,msg", [
-    pytest.param(GOOD, {"sha256": "0" * 64}, "SHA-256", id="wrong-sha256"),
-    pytest.param(GOOD, {"size": 5}, "size", id="wrong-size"),
-    pytest.param(b"<html>not an exe</html>", {}, "not a Windows program", id="not-an-exe"),
-    pytest.param(b"", {}, "empty", id="empty-file"),
+    (GOOD, {"sha256": "0" * 64}, "SHA-256"),
+    (GOOD, {"size": 5}, "size"),
+    (b"<html>not an exe</html>", {}, "not a Windows program"),
+    (b"", {}, "empty"),
 ])
 def test_download_rejects_bad_files_and_leaves_nothing(tmp_path, data, kw, msg):
     with pytest.raises(ValueError, match=msg):

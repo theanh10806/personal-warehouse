@@ -8,7 +8,12 @@ sáng / tối, tạo tem QR và mã vạch Code 128, quét bằng máy quét USB
 1. Vào trang **Releases** của dự án trên GitHub.
 2. Tải `PersonalWarehouse-Setup-x.y.z.exe` và chạy (không cần quyền admin, không cần cài Python).
 3. Dữ liệu nằm ở `Documents\MyWarehouse`. Cài bản mới hoặc gỡ ứng dụng **không** xóa dữ liệu.
-4. Khi có bản mới, app báo trong lúc mở (tắt được ở **Cài đặt → Cập nhật**). Bấm đồng ý để mở trang tải về,
+4. **Icon ứng dụng**: chạy một lần `python packaging/make_icons.py duong_dan/icon.png` (cần Pillow). Lệnh tạo `icon.png`, `icon.ico` (trong `webui/static/`) và ảnh Microsoft Store (`packaging/Assets/`). **Hãy commit các file này lên GitHub**: build (`build.ps1`, `installer.iss`) tự dùng chúng nên bản tải từ GitHub có icon ở file .exe, trình cài đặt, thanh tác vụ, cửa sổ và thanh bên của app.
+5. **Giới thiệu, góp ý, ủng hộ**: trang *Giới thiệu & ủng hộ*. Góp ý mở email (hoặc Gmail web) của người dùng với thư soạn sẵn gửi `theanh1129@gmail.com`; app không lưu mật khẩu nào. Sửa tên tác giả và thông tin ủng hộ trong `src/personal_warehouse/about.py` (mục `DONATE`); ảnh QR đặt tên `donate_qr.png` trong `webui/static/` sẽ tự hiện.
+6. **Sang máy mới / sao lưu online**: *Cài đặt → Xuất gói dữ liệu* tạo file `.pwbak` (dữ liệu + ảnh). Trên máy mới cài app, vào *Cài đặt → Khôi phục từ gói…*.
+   Hoặc bật *Đồng bộ online* và chọn một thư mục OneDrive / Google Drive / Dropbox: app tự lưu gói vào đó mỗi lần thoát.
+7. **An toàn dữ liệu**: trang *Lịch sử thay đổi* ghi mọi thao tác và cho *Hoàn tác* (kể cả xóa). *Cài đặt → Sao lưu & điểm khôi phục* liệt kê các bản tự sao lưu để quay lại. Quy tắc 3-2-1: bản trên máy (tự động) + bản ngoài máy (Đồng bộ online hoặc Xuất gói, nên đặt mật khẩu) + giữ nhiều bản theo thời gian.
+8. Khi có bản mới, app báo trong lúc mở (tắt được ở **Cài đặt → Cập nhật**). Bấm đồng ý để mở trang tải về,
    chạy bộ cài mới là xong; cơ sở dữ liệu tự nâng cấp và có bản sao lưu trước khi nâng cấp.
 
 ## Chạy từ mã nguồn
@@ -77,6 +82,8 @@ src/personal_warehouse/
     labels.py          trang in tem QR / mã vạch (HTML)
     scanning.py        đọc mã từ ảnh/camera (OpenCV, pyzbar)
     exporter.py        xuất Excel / CSV
+    history.py         nhật ký thay đổi + hoàn tác, thùng rác ảnh
+    transfer.py        gói .pwbak: xuất / khôi phục / đồng bộ thư mục online
     translator.py      dịch tên hàng sang tiếng Ả Rập (online)
 
   i18n/                ngôn ngữ (vi / en / ar)

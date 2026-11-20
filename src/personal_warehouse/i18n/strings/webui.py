@@ -37,17 +37,26 @@ _t("ui_pick_file", "Chọn tệp…", "Choose file…", "اختر ملفًا…"
 _t("ui_dev_only", "Chức năng này cần chạy trong cửa sổ ứng dụng.", "This needs the desktop window.",
    "تحتاج هذه الميزة إلى نافذة التطبيق.")
 _t("ui_show_more", "Hiện thêm {0} dòng", "Show {0} more rows", "عرض {0} صفوف إضافية")
-_t("btn_delete", "Xóa vĩnh viễn", "Delete permanently", "حذف نهائي")
-_t("del_title", "Xóa vĩnh viễn", "Delete permanently", "حذف نهائي")
+_t("btn_delete", "Xóa", "Delete", "حذف")
+_t("del_title", "Xóa mặt hàng", "Delete items", "حذف الأصناف")
 _t("del_confirm",
-   "Xóa vĩnh viễn {0} mặt hàng, kèm {1} dòng lịch sử nhập/xuất của chúng?\n\nKhông thể hoàn tác. Một bản sao lưu toàn bộ dữ liệu sẽ được tạo trước khi xóa.",
-   "Permanently delete {0} item(s) and their {1} stock-movement record(s)?\n\nThis cannot be undone. A full backup of your data is made first.",
-   "حذف {0} صنف نهائيًا مع {1} من سجلات الحركة الخاصة بها؟\n\nلا يمكن التراجع. سيتم إنشاء نسخة احتياطية كاملة قبل الحذف.")
-_t("del_done", "Đã xóa {0} mặt hàng. Bản sao lưu trước khi xóa: {1}", "Deleted {0} item(s). Backup made before deleting: {1}",
-   "تم حذف {0} صنف. النسخة الاحتياطية قبل الحذف: {1}")
+   "Xóa {0} mặt hàng, kèm {1} dòng lịch sử nhập/xuất của chúng?\n\nBạn có thể lấy lại bằng nút Hoàn tác hoặc ở trang Lịch sử thay đổi. Một bản sao lưu toàn bộ cũng được tạo trước khi xóa.",
+   "Delete {0} item(s) and their {1} stock-movement record(s)?\n\nYou can bring them back with Undo or from the Change history page. A full backup is also made first.",
+   "حذف {0} صنف مع {1} من سجلات الحركة؟\n\nيمكنك استعادتها بزر تراجع أو من صفحة سجل التغييرات. وتُنشأ نسخة احتياطية كاملة أولًا.")
+_t("del_done", "Đã xóa {0} mặt hàng. Lấy lại: bấm Hoàn tác (hoặc trang Lịch sử thay đổi).",
+   "Deleted {0} item(s). To get them back press Undo (or open Change history).",
+   "تم حذف {0} صنف. للاستعادة اضغط تراجع (أو افتح سجل التغييرات).")
 _t("del_pick", "Hãy tick chọn hoặc bấm vào ít nhất một dòng để xóa.", "Tick or click at least one row to delete.",
    "حدد صفًا واحدًا على الأقل للحذف.")
 _t("loc_legacy", "NGOÀI SƠ ĐỒ MỚI", "OUTSIDE THE CURRENT MAP", "خارج الخريطة الحالية")
 _t("loc_legacy_hint", "Các vị trí cũ không còn trong sơ đồ (A–C × 1–8). Mở hàng để chuyển sang vị trí mới.",
    "Old locations that are not on the map any more (A–C × 1–8). Open the item to move it to a new place.",
    "مواقع قديمة لم تعد في الخريطة (A–C × 1–8). افتح الصنف لنقله إلى مكان جديد.")
+
+_t("entry_hint", "Enter: sang ô kế • Ctrl+Enter: lưu và thêm mặt hàng tiếp • ô có ▾ có gợi ý từ dữ liệu cũ",
+   "Enter: next field • Ctrl+Enter: save and add another • fields with ▾ suggest earlier values",
+   "Enter: الحقل التالي • Ctrl+Enter: حفظ وإضافة آخر • الحقول ذات ▾ تقترح قيمًا سابقة")
+_t("btn_save_next", "Lưu & thêm tiếp", "Save & add another", "حفظ وإضافة آخر")
+_t("btn_undo", "Hoàn tác", "Undo", "تراجع")
+_t("mv_hint", "Enter trong ô số lượng = lưu ngay.", "Enter in the quantity box saves right away.",
+   "Enter في خانة الكمية يحفظ فورًا.")

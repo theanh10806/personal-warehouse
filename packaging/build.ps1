@@ -43,7 +43,13 @@ Write-Host "Building Personal Warehouse $version (MSIX: $msixVersion) with Pytho
 Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .\packaging\msix-staging -ErrorAction SilentlyContinue
 
+# App icon: run `python packaging\make_icons.py my_icon.png` once; the .ico is then part of the repo.
+$iconIco = Join-Path (Get-Location) "src\personal_warehouse\webui\static\icon.ico"
+$iconArgs = @()
+if (Test-Path $iconIco) { $iconArgs = @("--icon", $iconIco) } else { Write-Warning "icon.ico not found - the EXE will have the default icon. Run packaging\make_icons.py." }
+
 python -m PyInstaller --noconfirm --clean --windowed --onedir `
+    @iconArgs `
     --name PersonalWarehouse `
     --paths src `
     --collect-submodules personal_warehouse `

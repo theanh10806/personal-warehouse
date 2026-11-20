@@ -21,11 +21,13 @@ from personal_warehouse import config  # noqa: E402
 @pytest.fixture()
 def data_dir(tmp_path, monkeypatch):
     """Point every data path at a fresh folder and create the schema."""
-    for name, sub in (("DATA_DIR", ""), ("PHOTO_DIR", "Photos"), ("BACKUP_DIR", "Backup"), ("LABEL_DIR", "Labels")):
+    for name, sub in (("DATA_DIR", ""), ("PHOTO_DIR", "Photos"), ("BACKUP_DIR", "Backup"), ("LABEL_DIR", "Labels"), ("TRASH_DIR", "Trash"), ("EXPORT_DIR", "Export")):
         p = tmp_path / sub if sub else tmp_path
         p.mkdir(exist_ok=True)
         monkeypatch.setattr(config, name, p)
-    monkeypatch.setattr(config, "DB_PATH", tmp_path / "warehouse.db")
+    (tmp_path / "Database").mkdir(exist_ok=True)
+    monkeypatch.setattr(config, "DB_DIR", tmp_path / "Database")        # same layout as production
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "Database" / "warehouse.db")
     monkeypatch.setattr(config, "SETTINGS_PATH", tmp_path / "settings.json")
     from personal_warehouse.core.database import init_db
     init_db()

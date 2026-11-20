@@ -101,6 +101,10 @@ def test_locations_map(api):
     new_item(api, section="C", part="3", quantity="7")
     cell = [c for s in api.locations()["sections"] for c in s["cells"] if c["code"] == "C3"][0]
     assert cell["n"] == 1 and cell["units"] == "7"
+    m = api.locations()
+    assert m["total"]["slots"] == 24 and m["total"]["used"] == 1 and m["total"]["items"] == 1
+    assert [z["section"] for z in m["sections"]] == ["A", "B", "C"] and all(len(z["cells"]) == 8 for z in m["sections"])
+    assert m["sections"][2]["used"] == 1 and m["sections"][2]["units"] == "7" and cell["names"]
 
 
 def test_delete_items_removes_history_and_makes_backup(api, data_dir):

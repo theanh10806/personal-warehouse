@@ -2,6 +2,8 @@
 
 from contextlib import contextmanager
 from datetime import datetime
+import os
+from pathlib import Path
 import shutil
 import sqlite3
 
@@ -14,6 +16,7 @@ def db():
     con = sqlite3.connect(config.DB_PATH, timeout=10)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys=ON")
+    con.execute("PRAGMA synchronous=FULL")             # a power cut must not lose or corrupt committed work
     try:
         yield con
         con.commit()
@@ -44,6 +47,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER NOT NULL,
             movement_type TEXT NOT NULL, quantity REAL NOT NULL, reason TEXT, movement_date TEXT NOT NULL,
             FOREIGN KEY(item_id) REFERENCES items(id));
+        CREATE TABLE IF NOT EXISTS history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, action TEXT NOT NULL, item_id INTEGER,
+            label TEXT, before TEXT, after TEXT, undone INTEGER NOT NULL DEFAULT 0);
+        CREATE INDEX IF NOT EXISTS idx_history_item ON history(item_id, id);
         CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
         CREATE INDEX IF NOT EXISTS idx_items_location ON items(section, part);
         """)
@@ -94,12 +101,70 @@ def backup_db_to(path):
             dst.close()
 
 
+def verify_db(path):
+    """True when ``path`` is a healthy warehouse database (SQLite integrity check + our tables exist)."""
+    try:
+        con = sqlite3.connect(f"file:{Path(path).as_posix()}?mode=ro", uri=True)
+        try:
+            if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                return False
+            names = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            return {"items", "movements"} <= names
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return False
+
+
+def verified_backup(path):
+    """Back up to ``path`` and prove the copy is readable; a bad copy is deleted and reported as False."""
+    path = Path(path)
+    backup_db_to(path)
+    if verify_db(path):
+        return True
+    path.unlink(missing_ok=True)
+    return False
+
+
+def prune_backups(folder=None, today=None):
+    """Grandfather-father-son retention for ``warehouse_YYYYMMDD.db``: newest daily + one per week + one per month.
+
+    Safety copies (``before_*``) are trimmed separately, newest KEEP_SAFETY_BACKUPS of each kind.
+    """
+    folder = Path(folder or config.BACKUP_DIR)
+    keep, weeks, months = set(), set(), set()
+    dated = []
+    for f in folder.glob("warehouse_*.db"):
+        try:
+            dated.append((datetime.strptime(f.stem.split("_")[1], "%Y%m%d").date(), f))
+        except (ValueError, IndexError):
+            pass
+    dated.sort(reverse=True)
+    for n, (d, f) in enumerate(dated):
+        wk, mo = d.isocalendar()[:2], (d.year, d.month)
+        if n < config.KEEP_AUTO_BACKUPS:
+            keep.add(f)
+        if wk not in weeks and len(weeks) < config.KEEP_WEEKLY_BACKUPS:
+            weeks.add(wk)
+            keep.add(f)
+        if mo not in months and len(months) < config.KEEP_MONTHLY_BACKUPS:
+            months.add(mo)
+            keep.add(f)
+    for _, f in dated:
+        if f not in keep:
+            f.unlink(missing_ok=True)
+    for kind in ("before_delete_*.db", "before_v*.db", "before_restore_*.pwbak"):
+        for old in sorted(folder.glob(kind))[:-config.KEEP_SAFETY_BACKUPS]:
+            old.unlink(missing_ok=True)
+
+
 def auto_backup(overwrite):
     target = config.BACKUP_DIR / f"warehouse_{datetime.now():%Y%m%d}.db"
     try:
         if overwrite or not target.exists():
-            backup_db_to(target)
-        for old in sorted(config.BACKUP_DIR.glob("warehouse_*.db"))[:-KEEP_AUTO_BACKUPS]:
-            old.unlink(missing_ok=True)
+            tmp = target.with_name(target.name + ".tmp")        # never replace a good backup with a half-written one
+            if verified_backup(tmp):
+                os.replace(tmp, target)
+        prune_backups()
     except Exception:
         pass

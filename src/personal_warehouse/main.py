@@ -21,6 +21,8 @@ def main(argv=None):
     pre_migration_backup()
     init_db()
     auto_backup(overwrite=False)
+    from personal_warehouse.core.history import purge_trash
+    purge_trash()
     if "--tk" not in argv:
         if "--browser" in argv:                                # same web UI in your normal browser (no pywebview needed)
             from personal_warehouse.webui.server import serve

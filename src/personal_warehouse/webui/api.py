@@ -32,6 +32,8 @@ from personal_warehouse.core.formatting import (item_name, make_location, money,
 from personal_warehouse.core.labels import build_label_html
 from personal_warehouse.core.scanning import decode_codes
 from personal_warehouse.core.stock import apply_movement, find_item
+from personal_warehouse import about
+from personal_warehouse.core import history, transfer
 from personal_warehouse.core.translator import translate_online
 from personal_warehouse.i18n import LANGS, TR, cond_t, current_lang, from_label, mv_t, tr, unit_t
 from personal_warehouse.i18n import set_language as set_ui_language
@@ -98,6 +100,9 @@ class Api:
         mode = {"open": getattr(dlg, "OPEN", None) or webview.OPEN_DIALOG,
                 "save": getattr(dlg, "SAVE", None) or webview.SAVE_DIALOG,
                 "folder": getattr(dlg, "FOLDER", None) or webview.FOLDER_DIALOG}[kind]
+        if kind in ("save", "open", "folder") and "directory" not in kw:
+            config.EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+            kw["directory"] = str(config.EXPORT_DIR)               # always start in the same, known place
         res = self._window.create_file_dialog(mode, **kw)
         if not res:
             return None
@@ -124,6 +129,7 @@ class Api:
             "layouts": [{"value": k, "label": tr("layout_" + k)} for k in LAYOUTS],
             "version": __version__, "data_dir": str(config.DATA_DIR), "backup_name": config.BACKUP_DIR.name,
             "keep_backups": config.KEEP_AUTO_BACKUPS, "auto_update": bool(st.get("auto_update", True)),
+            "sync_dir": st.get("sync_dir") or "", "last_sync": st.get("last_sync") or "",
             "desktop": self._window is not None,
         }
 
@@ -283,8 +289,10 @@ class Api:
             if r["is_active"] and not confirmed:
                 return {"ok": False, "needs_confirm": True, "title": tr("archive_title"),
                         "message": tr("archive_confirm", r["name"])}
+            old = history.snapshot(con, iid)
             con.execute("UPDATE items SET is_active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
                         (0 if r["is_active"] else 1, iid))
+            history.log(con, "update", iid, history._label(old), old, history.snapshot(con, iid))
         return {"ok": True, "message": f"{tr('archived') if r['is_active'] else tr('restored')}: {r['name']}"}
 
     @safe
@@ -304,17 +312,13 @@ class Api:
         safety = config.BACKUP_DIR / f"before_delete_{datetime.now():%Y%m%d_%H%M%S}.db"
         backup_db_to(safety)
         with db() as con:
-            photos = {r["photo_path"] for r in con.execute(
-                f"SELECT photo_path FROM items WHERE id IN ({marks}) AND photo_path IS NOT NULL", found)}
-            con.execute(f"DELETE FROM movements WHERE item_id IN ({marks})", found)
-            con.execute(f"DELETE FROM items WHERE id IN ({marks})", found)
-            for ph in photos:
-                if not con.execute("SELECT 1 FROM items WHERE photo_path=?", (ph,)).fetchone():
-                    try:
-                        photo_file(ph).unlink(missing_ok=True)
-                    except OSError:
-                        pass
-        return {"ok": True, "count": len(found), "message": tr("del_done", len(found), safety.name)}
+            photos, entries = history.delete_items_logged(con, found)   # journaled: can be undone from History
+        for ph in photos:                                            # photos go to Trash/, not the void
+            with db() as con:
+                used = con.execute("SELECT 1 FROM items WHERE photo_path=?", (ph,)).fetchone()
+            if not used:
+                history.trash_photo(ph)
+        return {"ok": True, "count": len(found), "undo_ids": entries, "message": tr("del_done", len(found))}
 
     # ------------------------------------------------------------------ item form
     def _photo_uri(self, stored_or_path, box=(560, 460)):
@@ -435,9 +439,13 @@ class Api:
         try:
             with db() as con:
                 if iid:
+                    old_snap = history.snapshot(con, iid)
                     con.execute("""UPDATE items SET name=?,name_ar=?,category=?,description=?,engine_application=?,
                         barcode=?,section=?,part=?,condition=?,unit=?,purchase_price=?,selling_price=?,min_stock=?,
                         photo_path=?,supplier=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""", common + (iid,))
+                    new_snap = history.snapshot(con, iid)
+                    if history._state(old_snap) != history._state(new_snap):
+                        history.log(con, "update", iid, history._label(new_snap), old_snap, new_snap)
                 else:
                     cur = con.execute("""INSERT INTO items(name,name_ar,category,description,engine_application,
                         barcode,section,part,condition,unit,purchase_price,selling_price,min_stock,photo_path,
@@ -447,6 +455,8 @@ class Api:
                     con.execute("UPDATE items SET item_code=? WHERE id=?", (f"WH-{iid:05d}", iid))
                     if qty > 0:
                         record_movement(con, iid, "Opening stock", qty, "Initial quantity", buy, 0, qty)
+                    snap = history.snapshot(con, iid)
+                    history.log(con, "create", iid, history._label(snap), None, snap)
         except Exception as e:                                   # noqa: BLE001
             if new_name:
                 (config.PHOTO_DIR / new_name).unlink(missing_ok=True)
@@ -456,7 +466,7 @@ class Api:
                 still_used = con.execute("SELECT COUNT(*) FROM items WHERE photo_path=?", (current_photo,)).fetchone()[0]
             if not still_used:
                 try:
-                    photo_file(current_photo).unlink(missing_ok=True)
+                    history.trash_photo(current_photo)
                 except OSError:
                     pass
         return {"ok": True, "id": iid, "message": tr("saved", text("name"))}
@@ -654,20 +664,36 @@ class Api:
     # ------------------------------------------------------------------ storage map
     @safe
     def locations(self):
+        """Storage map: 3 sections x 8 parts (fixed), per-cell counts, low-stock flags and a few item names."""
         with db() as con:
             stats = {(r["section"], r["part"]): r for r in con.execute(
-                "SELECT section,part,COUNT(*) n,SUM(quantity) u FROM items WHERE is_active=1 GROUP BY section,part")}
-        legacy = [{"code": make_location(s, p), "n": r["n"], "units": qty_fmt(r["u"] or 0)}
-                  for (s, p), r in sorted(stats.items()) if s not in SECTIONS or p not in PARTS]
+                "SELECT section,part,COUNT(*) n,SUM(quantity) u,"
+                "SUM(CASE WHEN quantity<=0 OR (min_stock>0 AND quantity<=min_stock) THEN 1 ELSE 0 END) low "
+                "FROM items WHERE is_active=1 GROUP BY section,part")}
+            names = {}
+            for r in con.execute("SELECT section,part,name,name_ar FROM items WHERE is_active=1 "
+                                 "ORDER BY name COLLATE NOCASE"):
+                names.setdefault((r["section"], r["part"]), []).append(item_name(r))
+
+        def cell(s, p):
+            r = stats.get((s, p))
+            n, u, low = (r["n"], r["u"] or 0, r["low"] or 0) if r else (0, 0, 0)
+            return {"code": make_location(s, p), "n": n, "units": qty_fmt(u), "low": low,
+                    "names": names.get((s, p), [])[:3]}
+
+        legacy = [dict(cell(s, p), code=make_location(s, p))
+                  for (s, p) in sorted(stats) if s not in SECTIONS or p not in PARTS]
         out = []
         for s in SECTIONS:
-            cells = []
-            for p in PARTS:
-                r = stats.get((s, p))
-                n, u = (r["n"], r["u"] or 0) if r else (0, 0)
-                cells.append({"code": make_location(s, p), "n": n, "units": qty_fmt(u)})
-            out.append({"section": s, "cells": cells})
-        return {"ok": True, "sections": out, "legacy": legacy}
+            cells = [cell(s, p) for p in PARTS]
+            out.append({"section": s, "cells": cells, "n": sum(c["n"] for c in cells),
+                        "used": sum(1 for c in cells if c["n"]), "low": sum(c["low"] for c in cells),
+                        "units": qty_fmt(sum(float((stats.get((s, p)) or {"u": 0})["u"] or 0) for p in PARTS))})
+        total_n = sum(x["n"] for x in out)
+        return {"ok": True, "sections": out, "legacy": legacy,
+                "total": {"slots": len(SECTIONS) * len(PARTS), "used": sum(x["used"] for x in out),
+                          "items": total_n, "low": sum(x["low"] for x in out),
+                          "max_n": max([c["n"] for x in out for c in x["cells"]] or [0])}}
 
     # ------------------------------------------------------------------ labels, export, backup
     @safe
@@ -706,7 +732,7 @@ class Api:
     def export_excel(self):
         name = f"Warehouse_{datetime.now():%Y%m%d}.xlsx"
         if self._window is None:                                 # dev server: no native dialog, use the data folder
-            folder = config.DATA_DIR / "Export"
+            folder = config.EXPORT_DIR
             folder.mkdir(parents=True, exist_ok=True)
             path = str(folder / name)
         else:
@@ -722,7 +748,7 @@ class Api:
 
     @safe
     def backup_all(self):
-        dest = str(config.DATA_DIR / "Export") if self._window is None else self._dialog("folder")
+        dest = str(config.EXPORT_DIR) if self._window is None else self._dialog("folder")
         if not dest:
             return {"ok": True, "cancelled": True}
         target = Path(dest) / f"MyWarehouse_Backup_{datetime.now():%Y%m%d_%H%M%S}"
@@ -734,6 +760,262 @@ class Api:
             return {"ok": False, "error": str(e), "title": tr("backup_fail")}
         return {"ok": True, "message": tr("backup_status", target), "title": tr("backup_done"),
                 "detail": tr("backup_done_msg", target)}
+
+    # ------------------------------------------------------------------ move to another computer / online copy
+    @staticmethod
+    def _pkg_error(e):
+        return {"ok": False, "title": tr("tx_title"), "error": tr("tx_err_" + str(e)) if ("tx_err_" + str(e)) in TR else str(e)}
+
+    @safe
+    def transfer_export(self, password=None):
+        """Save everything as one .pwbak file (database + photos) to carry to another computer."""
+        name = f"MyWarehouse_{datetime.now():%Y%m%d_%H%M}{transfer.EXT}"
+        if self._window is None:
+            folder = config.EXPORT_DIR
+            folder.mkdir(parents=True, exist_ok=True)
+            path = str(folder / name)
+        else:
+            path = self._dialog("save", save_filename=name, file_types=(f"{tr('tx_files')} (*{transfer.EXT})",))
+        if not path:
+            return {"ok": True, "cancelled": True}
+        if not path.lower().endswith(transfer.EXT):
+            path += transfer.EXT
+        try:
+            m = transfer.create_package(path, password or None)
+        except transfer.PackageError as e:
+            return self._pkg_error(e)
+        save_settings(last_export=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        lock = tr("tx_locked") if password else ""
+        return {"ok": True, "title": tr("tx_title"), "message": tr("tx_exported", path, m["items"], m["photos"]) + lock}
+
+    @safe
+    def restore_inspect(self, path=None, password=None):
+        """Pick a .pwbak (or use ``path``) and report what it contains. Nothing is changed yet."""
+        if not path:
+            if self._window is None:
+                latest = transfer.latest_in_folder(load_settings().get("sync_dir") or config.EXPORT_DIR)
+                path = str(latest) if latest else None
+            else:
+                path = self._dialog("open", file_types=(f"{tr('tx_files')} (*{transfer.EXT})",))
+        if not path:
+            return {"ok": True, "cancelled": True}
+        if transfer.is_encrypted(path) and not password:
+            return {"ok": True, "needs_password": True, "path": str(path), "title": tr("tx_restore_title"),
+                    "message": tr("tx_pw_ask")}
+        try:
+            m = transfer.inspect_package(path, password)
+        except transfer.PackageError as e:
+            return self._pkg_error(e)
+        warn = tr("tx_replace_warn") if transfer.has_data() else ""
+        return {"ok": True, "path": str(path), "title": tr("tx_restore_title"),
+                "message": tr("tx_restore_msg", m.get("created", "?"), m.get("items", 0), m.get("movements", 0),
+                              m.get("photos", 0), warn)}
+
+    @safe
+    def restore_apply(self, path, password=None):
+        try:
+            m, safety = transfer.restore_package(path, password)
+        except transfer.PackageError as e:
+            return self._pkg_error(e)
+        st = load_settings()
+        if st.get("lang") in LANGS:
+            set_ui_language(st["lang"])
+        extra = tr("tx_restored_safety", safety.name) if safety else ""
+        return {"ok": True, "title": tr("tx_restore_title"), "message": tr("tx_restored", m.get("items", 0), extra),
+                "bootstrap": self.bootstrap()}
+
+    @safe
+    def sync_choose_folder(self):
+        """Choose a folder that OneDrive / Google Drive / Dropbox keeps online. Backups are written there."""
+        if self._window is None:
+            folder = config.DATA_DIR / "Sync"
+            folder.mkdir(parents=True, exist_ok=True)
+            path = str(folder)
+        else:
+            path = self._dialog("folder")
+        if not path:
+            return {"ok": True, "cancelled": True}
+        save_settings(sync_dir=path)
+        return self.sync_now()
+
+    @safe
+    def sync_off(self):
+        save_settings(sync_dir="", last_sync="")
+        return {"ok": True, "bootstrap": self.bootstrap()}
+
+    @safe
+    def sync_now(self):
+        folder = load_settings().get("sync_dir")
+        if not folder:
+            return {"ok": False, "error": tr("tx_err_sync_missing"), "title": tr("tx_title")}
+        try:
+            target, m = transfer.sync_to_folder(folder)
+        except transfer.PackageError as e:
+            return self._pkg_error(e)
+        except OSError as e:
+            return {"ok": False, "title": tr("tx_title"), "error": tr("tx_err_sync_fail", e)}
+        save_settings(last_sync=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        return {"ok": True, "title": tr("tx_title"), "message": tr("tx_synced", target.name, folder),
+                "bootstrap": self.bootstrap()}
+
+    # ------------------------------------------------------------------ history / undo, restore points, backup health
+    @safe
+    def history_list(self, item_id=None):
+        return {"ok": True, "rows": history.recent(300, item_id)}
+
+    @safe
+    def history_undo(self, entry_id, confirmed=False):
+        if not confirmed:
+            return {"ok": False, "needs_confirm": True, "title": tr("hx_title"), "message": tr("hx_confirm")}
+        label = history.undo(int(entry_id))
+        return {"ok": True, "message": tr("hx_done", label)}
+
+    @safe
+    def restore_points(self):
+        return {"ok": True, "rows": [dict(r, kind_label=tr("rp_" + r["kind"])) for r in transfer.restore_points()],
+                "status": transfer.backup_status(load_settings())}
+
+    @safe
+    def restore_point_apply(self, name, confirmed=False):
+        path = config.BACKUP_DIR / Path(name).name               # a file name only, never a path
+        if not path.is_file():
+            return {"ok": False, "error": tr("hx_err_gone")}
+        if transfer.is_encrypted(path):
+            return {"ok": False, "error": tr("tx_err_need_password")}
+        if not confirmed:
+            return {"ok": False, "needs_confirm": True, "title": tr("tx_restore_title"),
+                    "message": tr("rp_confirm", path.name)}
+        try:
+            safety = (transfer.restore_db_file(path) if path.suffix == ".db" else transfer.restore_package(path)[1])
+        except transfer.PackageError as e:
+            return self._pkg_error(e)
+        extra = tr("tx_restored_safety", safety.name) if safety else ""
+        return {"ok": True, "title": tr("tx_restore_title"), "message": tr("rp_done", path.name, extra),
+                "bootstrap": self.bootstrap()}
+
+    # ------------------------------------------------------------------ where the data lives
+    @staticmethod
+    def _folders():
+        f = [("root", config.DATA_DIR, "loc_root"), ("db", config.DB_DIR, "loc_db"), ("photos", config.PHOTO_DIR, "loc_photos"),
+             ("backup", config.BACKUP_DIR, "loc_backup"), ("trash", config.TRASH_DIR, "loc_trash"),
+             ("export", config.EXPORT_DIR, "loc_export"), ("labels", config.LABEL_DIR, "loc_labels")]
+        sync = load_settings().get("sync_dir")
+        if sync:
+            f.append(("sync", Path(sync), "loc_sync"))
+        return f
+
+    @safe
+    def data_locations(self):
+        rows, cloud = [], False
+        for key, path, label in self._folders():
+            files = [p for p in path.rglob("*") if p.is_file()] if path.is_dir() and key != "root" else []
+            rows.append({"key": key, "path": str(path), "label": tr(label), "hint": tr(label + "_hint"),
+                         "exists": path.is_dir(), "files": len(files),
+                         "size": round(sum(p.stat().st_size for p in files) / 1048576, 1)})
+        if any(w in str(config.DATA_DIR).lower() for w in ("onedrive", "dropbox", "google drive", "googledrive", "icloud")):
+            cloud = True
+        return {"ok": True, "rows": rows, "cloud_warning": tr("loc_cloud_warn") if cloud else "",
+                "custom": config.LOCATION_FILE.exists() and not __import__("os").environ.get("PW_DATA_DIR")}
+
+    @safe
+    def open_folder(self, key):
+        import os
+        import subprocess
+        path = {k: p for k, p, _ in self._folders()}.get(key)
+        if path is None:
+            return {"ok": False, "error": tr("hx_err_gone")}
+        path.mkdir(parents=True, exist_ok=True)
+        if self._window is None:                                 # dev browser mode: just say where it is
+            return {"ok": True, "message": str(path)}
+        if sys.platform == "win32":
+            os.startfile(str(path))                              # noqa: S606
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+        return {"ok": True}
+
+    @safe
+    def data_move(self, target=None):
+        """Copy everything to a folder the user picks and remember it. The old folder is left untouched."""
+        from personal_warehouse.core.database import verify_db
+        if not target:
+            if self._window is None:
+                return {"ok": False, "error": tr("loc_desktop_only")}
+            target = self._dialog("folder", directory=str(config.DATA_DIR.parent))
+        if not target:
+            return {"ok": True, "cancelled": True}
+        new = Path(target)
+        old = config.DATA_DIR.resolve()
+        if new.resolve() == old or old in new.resolve().parents:
+            return {"ok": False, "error": tr("loc_same"), "title": tr("loc_move_title")}
+        if new.is_dir() and any(new.iterdir()) and not (new / "Database" / "warehouse.db").exists():
+            new = new / "MyWarehouse"                            # never scatter our folders among someone's files
+        if (new / "Database" / "warehouse.db").exists():
+            return {"ok": False, "error": tr("loc_exists", new), "title": tr("loc_move_title")}
+        try:
+            for sub in config.SUBFOLDERS:
+                (new / sub).mkdir(parents=True, exist_ok=True)
+            backup_db_to(new / "Database" / "warehouse.db")
+            if not verify_db(new / "Database" / "warehouse.db"):
+                raise OSError(tr("tx_err_damaged"))
+            for sub in ("Photos", "Trash", "Backup", "Export"):
+                src = config.DATA_DIR / sub
+                if src.is_dir():
+                    shutil.copytree(src, new / sub, dirs_exist_ok=True)
+            if config.SETTINGS_PATH.exists():
+                shutil.copy2(config.SETTINGS_PATH, new / "settings.json")
+            config.LOCATION_FILE.parent.mkdir(parents=True, exist_ok=True)
+            config.LOCATION_FILE.write_text(str(new), encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "title": tr("loc_move_title"), "error": tr("loc_move_fail", e)}
+        return {"ok": True, "title": tr("loc_move_title"), "message": tr("loc_moved", new, old), "restart": True}
+
+    @safe
+    def suggestions(self):
+        """Values already used in the warehouse, most common first - feeds the type-ahead lists of the item form."""
+        out = {}
+        with db() as con:
+            for col in ("name", "category", "engine_application", "supplier"):
+                out[col] = [r[0] for r in con.execute(
+                    f"SELECT {col} FROM items WHERE {col} IS NOT NULL AND TRIM({col})<>'' "
+                    f"GROUP BY {col} COLLATE NOCASE ORDER BY COUNT(*) DESC, {col} LIMIT 300")]
+        return {"ok": True, "lists": out}
+
+    # ------------------------------------------------------------------ about, feedback, support
+    @safe
+    def about_info(self):
+        return {"ok": True, "version": __version__, "author": about.AUTHOR_NAME, "email": about.CONTACT_EMAIL,
+                "github": about.GITHUB_URL, "donate": about.DONATE,
+                "kinds": [{"value": k, "label": tr("fb_kind_" + k)} for k in ("idea", "bug", "thanks", "other")]}
+
+    @safe
+    def open_link(self, key):
+        url = about.LINKS.get(key)
+        if not url:
+            return {"ok": False, "error": tr("hx_err_gone")}
+        if self._window is None:
+            return {"ok": True, "url": url, "open_in_js": True}
+        webbrowser.open(url)
+        return {"ok": True}
+
+    @safe
+    def feedback_send(self, kind, message, contact="", include_info=True, via="mail"):
+        """Open the user's mail program (or Gmail on the web) with the message ready to send to the author.
+
+        The app has no mail server and stores no password: the message goes out from the user's own mail account."""
+        message = (message or "").strip()
+        if len(message) < 5:
+            return {"ok": False, "error": tr("fb_empty"), "title": tr("fb_title")}
+        subject, body = about.compose(tr("fb_kind_" + kind) if ("fb_kind_" + kind) in TR else kind, message, contact,
+                                      bool(include_info), current_lang())
+        url = about.gmail_url(subject, body) if via == "gmail" else about.mailto_url(subject, body)
+        if len(url) > (about.GMAIL_LIMIT if via == "gmail" else about.MAILTO_LIMIT):
+            return {"ok": False, "title": tr("fb_title"), "error": tr("fb_too_long"), "copy": f"{subject}\n\n{body}"}
+        if self._window is None:
+            return {"ok": True, "url": url, "open_in_js": True, "copy": f"{subject}\n\n{body}"}
+        webbrowser.open(url)
+        return {"ok": True, "message": tr("fb_opened", about.CONTACT_EMAIL), "copy": f"{subject}\n\n{body}"}
 
     # ------------------------------------------------------------------ bulk translation
     @safe
@@ -780,8 +1062,12 @@ class Api:
         if st.get("saved") is None:
             if st["out"]:
                 with db() as con:
-                    con.executemany("UPDATE items SET name_ar=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                                    [(t, i) for i, t in st["out"] if t])
+                    for i, t in st["out"]:
+                        if not t:
+                            continue
+                        old = history.snapshot(con, i)
+                        con.execute("UPDATE items SET name_ar=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (t, i))
+                        history.log(con, "update", i, history._label(old), old, history.snapshot(con, i))
             st["saved"] = True
         if st["streak"] >= 3 and not st["out"]:
             return {"ok": True, "finished": True, "error": tr("bt_offline"), "title": tr("tr_title")}
@@ -889,6 +1175,13 @@ class Api:
     def quit(self):
         from personal_warehouse.core.database import auto_backup
         auto_backup(overwrite=True)
+        folder = load_settings().get("sync_dir")
+        if folder:                                               # keep the online copy current; never block closing
+            try:
+                transfer.sync_to_folder(folder)
+                save_settings(last_sync=datetime.now().strftime("%Y-%m-%d %H:%M"))
+            except Exception:                                    # noqa: BLE001
+                pass
         if self._window is not None:
             self._window.destroy()
         return {"ok": True}

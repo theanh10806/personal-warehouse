@@ -13,7 +13,9 @@ AppId={{6F1D2B7A-3C54-4E8B-9A21-5D7C0E4B8F13}
 AppName=Personal Warehouse
 AppVerName=Personal Warehouse {#AppVersion}
 AppVersion={#AppVersion}
-AppPublisher=Personal Warehouse
+AppPublisher=Vo The Anh
+AppPublisherURL=https://github.com/theanh10806/personal-warehouse
+AppSupportURL=https://github.com/theanh10806/personal-warehouse/issues
 DefaultDirName={autopf}\Personal Warehouse
 DefaultGroupName=Personal Warehouse
 DisableProgramGroupPage=yes
@@ -27,6 +29,9 @@ OutputBaseFilename=PersonalWarehouse-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+#if FileExists("..\src\personal_warehouse\webui\static\icon.ico")
+SetupIconFile=..\src\personal_warehouse\webui\static\icon.ico
+#endif
 UninstallDisplayIcon={app}\PersonalWarehouse.exe
 UninstallDisplayName=Personal Warehouse {#AppVersion}
 CloseApplications=yes

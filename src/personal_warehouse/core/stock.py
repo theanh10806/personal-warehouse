@@ -2,6 +2,7 @@
 from personal_warehouse.config import CODE_RE
 from personal_warehouse.core.database import db, record_movement
 from personal_warehouse.core.formatting import qty_fmt
+from personal_warehouse.core.history import log
 from personal_warehouse.i18n import tr, unit_t
 
 
@@ -11,7 +12,7 @@ def apply_movement(iid, typ, q, price, reason):
     ``typ`` is "Stock In", "Stock Out" or "Adjustment" (for an adjustment ``q`` is the counted quantity).
     """
     with db() as con:
-        r = con.execute("SELECT quantity,unit,min_stock,name,name_ar FROM items WHERE id=?", (iid,)).fetchone()
+        r = con.execute("SELECT quantity,unit,min_stock,name,name_ar,item_code FROM items WHERE id=?", (iid,)).fetchone()
         before = r["quantity"]
         after = before + q if typ == "Stock In" else before - q if typ == "Stock Out" else q
         if after < -1e-9:
@@ -21,6 +22,8 @@ def apply_movement(iid, typ, q, price, reason):
             raise ValueError(tr("err_nochange"))
         con.execute("UPDATE items SET quantity=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (after, iid))
         record_movement(con, iid, typ, q, reason, price, before, after)
+        log(con, "movement", iid, f'{r["item_code"]} {r["name"]}', None,
+            {"type": typ, "qty": q, "qty_before": before, "qty_after": after})
     return r, before, after
 
 
