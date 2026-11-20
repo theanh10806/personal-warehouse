@@ -236,6 +236,41 @@ def _swap_db(staged):
     init_db()                                            # upgrade an older database to the current schema
 
 
+def recover_restore():
+    """Roll back an interrupted restore before the application opens its data."""
+    from personal_warehouse.settings import atomic_write
+    journal = config.DB_PATH.parent / ".restore-journal"
+    marker = journal / "pending.json"
+    if not marker.exists():
+        return
+    entries = json.loads(marker.read_text(encoding="utf-8"))
+    for entry in entries:
+        target = Path(entry["target"])
+        if entry["existed"]:
+            atomic_write(target, (journal / entry["backup"]).read_bytes())
+        else:
+            target.unlink(missing_ok=True)
+    marker.unlink()
+
+
+def _prepare_restore_journal(targets):
+    from personal_warehouse.settings import atomic_write
+    recover_restore()
+    journal = config.DB_PATH.parent / ".restore-journal"
+    journal.mkdir(exist_ok=True)
+    entries = []
+    for index, target in enumerate(dict.fromkeys(targets)):
+        entry = {"target": str(target.resolve()), "backup": str(index), "existed": target.exists()}
+        if entry["existed"]:
+            if target == config.DB_PATH:
+                backup_db_to(journal / str(index))
+            else:
+                atomic_write(journal / str(index), target.read_bytes())
+        entries.append(entry)
+    atomic_write(journal / "pending.json", json.dumps(entries).encode("utf-8"))
+    return journal / "pending.json"
+
+
 def restore_package(path, password=None):
     """Replace the current database + photos with the package. Returns (manifest, safety_copy_path)."""
     with _plain(path, password) as zp:
@@ -243,10 +278,20 @@ def restore_package(path, password=None):
         safety = _safety_copy("restore", path)           # one-click undo: restore this file to go back
         staged = config.DB_PATH.with_name("warehouse.restoring")
         st = {}
+        marker = None
         try:
             with zipfile.ZipFile(zp) as z:
+                targets = [config.DB_PATH, config.SETTINGS_PATH]
+                for prefix, folder in (("Photos/", config.PHOTO_DIR), ("Trash/", config.TRASH_DIR)):
+                    folder.mkdir(parents=True, exist_ok=True)
+                    targets.extend(folder / Path(info.filename).name for info in z.infolist()
+                                   if info.filename.startswith(prefix) and not info.is_dir()
+                                   and Path(info.filename).name not in ("", ".", ".."))
+                marker = _prepare_restore_journal(targets)
                 with z.open("Database/warehouse.db") as src, open(staged, "wb") as out:
                     shutil.copyfileobj(src, out)
+                    out.flush()
+                    os.fsync(out.fileno())
                 for prefix, folder in (("Photos/", config.PHOTO_DIR), ("Trash/", config.TRASH_DIR)):
                     folder.mkdir(parents=True, exist_ok=True)
                     for info in z.infolist():
@@ -256,16 +301,23 @@ def restore_package(path, password=None):
                         if base and base not in (".", ".."):
                             with z.open(info) as src, open(folder / base, "wb") as out:
                                 shutil.copyfileobj(src, out)
+                                out.flush()
+                                os.fsync(out.fileno())
                 try:
                     st = json.loads(z.read("settings.json"))
                 except (KeyError, ValueError):
                     pass
             _swap_db(staged)
+            if st:
+                from personal_warehouse.settings import save_settings
+                save_settings(**{k: v for k, v in st.items() if k in _PORTABLE_SETTINGS})
+            marker.unlink()
+        except BaseException:
+            if marker is not None:
+                recover_restore()
+            raise
         finally:
             staged.unlink(missing_ok=True)
-    if st:
-        from personal_warehouse.settings import save_settings
-        save_settings(**{k: v for k, v in st.items() if k in _PORTABLE_SETTINGS})
     return manifest, safety
 
 

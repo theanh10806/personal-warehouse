@@ -8,6 +8,20 @@ from personal_warehouse.settings import load_settings
 
 
 def main(argv=None):
+    from personal_warehouse.instance import single_instance
+    with single_instance() as acquired:
+        if not acquired:
+            if sys.platform == "win32":
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, "Personal Warehouse is already running.",
+                                               "Personal Warehouse", 64)
+            else:
+                print("Personal Warehouse is already running.")
+            return
+        _run(argv)
+
+
+def _run(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if sys.platform == "win32":
         try:
@@ -16,6 +30,8 @@ def main(argv=None):
         except Exception:
             pass
     config.ensure_dirs()
+    from personal_warehouse.core.transfer import recover_restore
+    recover_restore()
     st = load_settings()
     set_language(st.get("lang") if st.get("lang") in LANGS else "vi")
     pre_migration_backup()

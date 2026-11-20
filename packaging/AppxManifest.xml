@@ -8,7 +8,7 @@
   <Identity
       Name="Shinnosuke.ShinWarehouseManagement"
       Publisher="CN=08A55B90-7F96-4488-8586-F75F7BCC7746"
-      Version="3.1.0.0"
+      Version="3.8.0.0"
       ProcessorArchitecture="x64" />
 
   <Properties>

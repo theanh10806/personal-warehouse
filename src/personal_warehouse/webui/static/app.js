@@ -9,6 +9,10 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const icon = (id, cls = '') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 const debounce = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+const replenishmentHtml = notice => notice ? `<div class="restock-notice ${notice.state === 'out' ? 'stock-out' : 'stock-warning'}">
+  <b><span aria-hidden="true">${notice.state === 'out' ? '⊗' : '▲'}</span> ${esc(notice.message)}</b>
+  ${notice.supplier ? `<div>${esc(t('f_supplier'))}: <strong>${esc(notice.supplier)}</strong></div>` : ''}
+  <div>${esc(notice.suggestion)}</div></div>` : '';
 
 let B = null;                                   // bootstrap data: language, texts, option lists
 const t = (key, ...args) => String((B && B.strings[key]) ?? key).replace(/\{(\d+)\}/g, (_, i) => args[+i] ?? '');
@@ -198,8 +202,8 @@ RENDER.dashboard = async (_, live) => {
 
   const alerts = d.alerts.length ? `<div class="table-wrap" style="max-height:320px"><table><thead><tr><th>${esc(t('col_item'))}</th><th>${esc(t('col_loc'))}</th>
     <th class="num">${esc(t('col_qty'))}</th><th class="num">${esc(t('col_min'))}</th><th></th></tr></thead><tbody>${d.alerts.map(a =>
-    `<tr data-act="edit" data-id="${a.id}" style="cursor:pointer"><td><b>${esc(a.name)}</b></td><td>${esc(a.loc)}</td>
-     <td class="num ${a.state === 'out' ? 'qty-out' : 'qty-low'}">${esc(a.qty)}</td><td class="num">${esc(a.min)}</td>
+    `<tr data-act="edit" data-id="${a.id}" style="cursor:pointer"><td><b>${esc(a.name)}</b>${replenishmentHtml(a.replenishment)}</td><td>${esc(a.loc)}</td>
+     <td class="num ${a.state === 'out' ? 'qty-out' : 'qty-low'}">${esc(a.qty)} ${esc(a.unit)}</td><td class="num">${esc(a.min)}</td>
      <td class="num"><button type="button" class="btn small" data-act="move" data-id="${a.id}" style="color:var(--red-ink);border-color:var(--red)">${esc(t('mv_in'))}</button></td></tr>`).join('')}
     </tbody></table></div>` : `<div class="muted">${esc(t('ins_ok'))}</div>`;
 
@@ -487,25 +491,31 @@ RENDER.movement = async (opts, live) => {
       <div class="table-wrap" id="mvHist" style="max-height:480px"></div></div>`;
   if (S.mv.item) $('#mvItem').value = S.mv.item.label;
   await refreshMoveInfo();
+  if (!live()) return;
   await loadHistory(live);
+  if (!live()) return;
   if (S.mv.item) $('#mvQty').focus(); else $('#mvItem').focus();
 };
 
 async function refreshMoveInfo() {
+  const token = S.token, itemId = S.mv.item?.id;
   const type = $('#mvType').value;
   $('#mvQtyLbl').textContent = type === 'Adjustment' ? t('mv_counted') : t('mv_qty');
   const box = $('#mvInfo');
   if (!S.mv.item) { box.textContent = t('mv_pick'); box.className = 'info-line'; return; }
   const r = await api.item_info(S.mv.item.id, type);
+  if (token !== S.token || itemId !== S.mv.item?.id || $('#mvInfo') !== box || $('#mvType')?.value !== type) return;
   if (!(await ok(r))) return;
   box.textContent = r.info;
+  box.insertAdjacentHTML('beforeend', replenishmentHtml(r.replenishment));
   box.className = 'info-line ' + (r.state === 'out' ? 'out' : r.state === 'low' ? 'low' : '');
   $('#mvPrice').value = r.price;
 }
 
 async function loadHistory(live = () => true) {
+  const token = S.token;
   const r = await api.movements(S.mv.onlyItem && S.mv.item ? S.mv.item.id : null);
-  if (!live() || !$('#mvHist')) return;
+  if (!live() || token !== S.token || !$('#mvHist')) return;
   if (!(await ok(r))) return;
   $('#mvHist').innerHTML = r.rows.length ? `<table><thead><tr><th>${esc(t('h_date'))}</th><th>${esc(t('h_code'))}</th><th>${esc(t('col_item'))}</th><th>${esc(t('h_move'))}</th>
     <th class="num">${esc(t('h_qty'))}</th><th>${esc(t('h_change'))}</th><th class="num">${esc(t('h_price'))}</th><th>${esc(t('h_reason'))}</th></tr></thead><tbody>
@@ -530,20 +540,25 @@ const searchItems = debounce(async () => {
 function closeCombo() { const l = $('#mvList'); if (l) l.hidden = true; $('#mvItem')?.setAttribute('aria-expanded', 'false'); }
 
 async function pickMoveItem(id, label) {
+  const token = S.token;
   S.mv.item = {id: +id, label};
   $('#mvItem').value = label;
   searchSeq++; closeCombo();
   await refreshMoveInfo();
+  if (token !== S.token) return;
   if (S.mv.onlyItem) loadHistory();
   $('#mvQty').focus();
 }
 
 async function saveMove() {
+  const token = S.token;
   const r = await api.save_movement({item_id: S.mv.item?.id, type: $('#mvType').value, qty: $('#mvQty').value, price: $('#mvPrice').value, reason: $('#mvReason').value});
   if (!(await ok(r))) return;
+  if (token !== S.token) return;
   $('#mvQty').value = ''; $('#mvReason').value = '';
   toast(r.message, r.warn ? 'bad' : 'ok', 8000);
   await refreshMoveInfo();
+  if (token !== S.token) return;
   loadHistory();
   $('#mvQty').focus();
 }
@@ -602,13 +617,39 @@ async function doScan(text) {
 /* Fixed 3 sections x 8 parts. Two views of the same data: a floor plan (3 rows x 8 columns that always fills the
    page) and a 3D scene (CSS transforms, drag to rotate). Clicking a cell shows its items underneath. */
 const MAP_ROT = {rx: 56, rz: -22};
-const MAP = {view: 'flat', sel: '', data: null, reqSel: 0, ...MAP_ROT};
+const MAP = {view: 'flat', sel: '', data: null, reqSel: 0, query: '', filter: 'all', matches: null, searchRequest: 0, ...MAP_ROT};
 const lvlOf = (n, max) => n <= 0 ? 0 : Math.min(4, 1 + Math.floor((n - 1) / Math.max(1, Math.ceil(max / 4))));
 const cellTip = c => [c.code, `${c.n} ${t('ui_items_unit')} · ${c.units} ${t('ui_units_unit')}`, ...c.names].join('\n');
-const mapCell = (c, max) => `<button type="button" class="mcell lv${lvlOf(c.n, max)} ${MAP.sel === c.code ? 'on' : ''}" data-act="map-pick" data-code="${esc(c.code)}" title="${esc(cellTip(c))}">
-  ${c.low ? '<i class="dot" aria-hidden="true"></i>' : ''}<b>${esc(c.code)}</b>
+const mapMatches = c => (!MAP.matches || MAP.matches.has(c.code)) && ({all: true, low: c.low > 0, warning: c.warning > 0, out: c.out > 0, empty: c.n === 0}[MAP.filter]);
+const mapStockBadges = c => `${c.warning ? `<span class="map-status stock-warning"><span aria-hidden="true">▲</span> ${esc(t('map_warning_count', c.warning))}</span>` : ''}${c.out ? `<span class="map-status stock-out"><span aria-hidden="true">⊗</span> ${esc(t('map_out_count', c.out))}</span>` : ''}`;
+const mapCell = (c, max) => `<button type="button" class="mcell lv${lvlOf(c.n, max)} ${MAP.sel === c.code ? 'on' : ''} ${mapMatches(c) ? 'match' : 'dimmed'}" data-act="map-pick" data-code="${esc(c.code)}" aria-pressed="${MAP.sel === c.code}" aria-label="${esc(cellTip(c))}" title="${esc(cellTip(c))}">
+  <b>${esc(c.code)}</b>
   <span class="big">${c.n}</span><span class="small">${esc(t('ui_items_unit'))}</span>
-  <span class="small">${esc(c.units)} ${esc(t('ui_units_unit'))}</span></button>`;
+  <span class="map-preview">${esc(c.names[0] || t('map_empty_cell'))}</span>
+  <span class="map-statuses">${mapStockBadges(c)}</span></button>`;
+
+function mapApplyFilters() {
+  if (!MAP.data || S.page !== 'locations') return;
+  const cells = [...MAP.data.sections.flatMap(zone => zone.cells), ...MAP.data.legacy];
+  const visible = cells.filter(mapMatches);
+  const codes = new Set(visible.map(cell => cell.code));
+  $$('[data-act="map-pick"]').forEach(element => element.classList.toggle('dimmed', !codes.has(element.dataset.code)));
+  const status = $('#mapSearchStatus');
+  if (status) status.textContent = t('map_match_count', visible.length);
+}
+
+async function mapSearch() {
+  const request = ++MAP.searchRequest, query = MAP.query.trim();
+  if (!query) { MAP.matches = null; mapApplyFilters(); return; }
+  const result = await api.inventory({search: query});
+  if (request !== MAP.searchRequest || S.page !== 'locations') return;
+  if (!result.ok) { await ok(result); return; }
+  MAP.matches = new Set(result.rows.map(row => row.location));
+  const direct = [...MAP.data.sections.flatMap(zone => zone.cells), ...MAP.data.legacy]
+    .filter(cell => cell.code.toLowerCase() === query.toLowerCase());
+  direct.forEach(cell => MAP.matches.add(cell.code));
+  mapApplyFilters();
+}
 
 function mapFlat(d, max) {
   return `<div class="mzones">${d.sections.map(z => `<div class="mzone card">
@@ -625,7 +666,7 @@ function map3d(d, max) {
     const h = c.n ? 18 + Math.round(c.n / Math.max(1, max) * 86) : 3;
     return `<div class="bx lv${lvlOf(c.n, max)} ${MAP.sel === c.code ? 'on' : ''} ${c.low ? 'low' : ''}" data-act="map-pick" data-code="${esc(c.code)}"
       style="--x:${k * (CW + GAP)}px;--y:${r * (CW + GAP)}px;--h:${h}px;--w:${CW}px" title="${esc(cellTip(c))}">
-      <i class="f t"><b>${esc(c.code)}</b><em>${c.n}</em></i><i class="f s1"></i><i class="f s2"></i><i class="f s3"></i><i class="f s4"></i></div>`;
+      <i class="f t"><b>${esc(c.code)}</b><em>${c.n}</em><span class="map-statuses">${mapStockBadges(c)}</span></i><i class="f s1"></i><i class="f s2"></i><i class="f s3"></i><i class="f s4"></i></div>`;
   }).join('')).join('');
   const rowLabels = d.sections.map((z, r) => `<span class="rl" style="--y:${r * (CW + GAP) + CW / 2}px">${esc(z.section)}</span>`).join('');
   return `<div class="m3d card" dir="ltr"><div class="m3-bar"><small>${esc(t('map_3d_hint'))}</small>
@@ -654,37 +695,52 @@ async function mapDetail() {
   if (!box) return;
   if (!MAP.sel) { box.innerHTML = `<p class="muted pad">${esc(t('map_pick'))}</p>`; return; }
   const code = MAP.sel, my = ++MAP.reqSel;
-  const c = MAP.data.sections.flatMap(z => z.cells).find(x => x.code === code);
+  const c = [...MAP.data.sections.flatMap(z => z.cells), ...MAP.data.legacy].find(x => x.code === code);
   const r = await api.inventory({location: 'loc:' + code});
-  if (my !== MAP.reqSel || !$('#mapDetail')) return;
-  const rows = r.ok ? r.rows : [];
-  const body = rows.length ? `<div class="table-wrap" style="max-height:none"><table><tbody>${rows.slice(0, 8).map(x =>
-    `<tr data-act="edit" data-id="${x.id}" style="cursor:pointer"><td class="clip"><b>${esc(x.name)}</b></td><td class="muted">${esc(x.code)}</td>
-     <td class="num">${esc(x.qty)}</td><td>${x.state === 'out' || x.state === 'low' ? `<span class="chip bad">${esc(t(x.state === 'out' ? 'health_out' : 'health_low'))}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>
+  if (my !== MAP.reqSel || S.page !== 'locations' || MAP.sel !== code || !$('#mapDetail')) return;
+  if (!r.ok) { box.textContent = r.error || t('map_load_error'); return; }
+  const rows = r.rows;
+  const body = rows.length ? `<div class="map-item-list">${rows.slice(0, 8).map(x =>
+    `<article class="map-item"><button type="button" class="map-item-name" data-act="edit" data-id="${x.id}"><b>${esc(x.name)}</b><small>${esc(x.code)}</small></button>
+     <strong>${esc(x.qty)}</strong>${x.state === 'out' || x.state === 'low' ? `<span class="chip ${x.state === 'out' ? 'stock-out' : 'stock-warning'}"><span aria-hidden="true">${x.state === 'out' ? '⊗' : '▲'}</span> ${esc(t(x.state === 'out' ? 'health_out' : 'health_low'))}</span>` : ''}
+     ${replenishmentHtml(x.replenishment)}
+     <button type="button" class="btn small" data-act="map-move" data-id="${x.id}">${esc(t('nav_move'))}</button></article>`).join('')}</div>
     ${rows.length > 8 ? `<p class="muted pad">${esc(t('map_more', rows.length - 8))}</p>` : ''}`
     : `<p class="muted pad">${esc(t('map_empty_cell'))}</p>`;
-  box.innerHTML = `<div class="card-head"><h3>${esc(code)} <small class="muted">· ${c ? c.n : 0} ${esc(t('ui_items_unit'))} · ${c ? esc(c.units) : 0} ${esc(t('ui_units_unit'))}</small></h3>
-    ${btnHtml(t('map_open'), 'open-loc', 'primary', 'box', `data-code="${esc(code)}"`)}</div>${body}`;
+  box.innerHTML = `<div class="card-head"><h3>${esc(code)} <small class="muted">· ${c ? c.n : 0} ${esc(t('ui_items_unit'))}</small></h3></div>
+    <div class="map-detail-actions">${btnHtml(t('map_open'), 'open-loc', 'primary', 'box', `data-code="${esc(code)}"`)}
+    ${B.sections.includes(code[0]) && B.parts.includes(code.slice(1)) ? btnHtml(t('map_add_here'), 'map-add', '', 'plus', `data-code="${esc(code)}"`) : ''}</div>${body}`;
 }
 
 function mapRender() {
   const d = MAP.data, max = d.total.max_n, tt = d.total;
+  const statusCells = d.sections.flatMap(zone => zone.cells);
+  const warningCount = statusCells.reduce((total, cell) => total + cell.warning, 0);
+  const outCount = statusCells.reduce((total, cell) => total + cell.out, 0);
   const stat = (ic, tone, label, v, sub = '') => `<div class="card kpi"><div class="top"><div class="glyph tone-${tone}">${icon(ic)}</div></div>
     <div class="label">${esc(label)}</div><div class="value">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
   const pills = [['flat', t('map_view_flat')], ['3d', t('map_view_3d')]].map(([v, l]) =>
     `<button type="button" class="pill ${MAP.view === v ? 'on' : ''}" data-act="map-view" data-v="${v}">${esc(l)}</button>`).join('');
   const legend = `<div class="mlegend"><span>${esc(t('map_legend_empty'))}</span>${[0, 1, 2, 3, 4].map(i => `<i class="sw lv${i}"></i>`).join('')}<span>${esc(t('map_legend_more'))}</span>
-    <span class="lg-low"><i class="dot" aria-hidden="true"></i>${esc(t('map_legend_low'))}</span></div>`;
+    <span class="map-status stock-warning"><span aria-hidden="true">▲</span> ${esc(t('health_low'))}</span>
+    <span class="map-status stock-out"><span aria-hidden="true">⊗</span> ${esc(t('health_out'))}</span></div>`;
   $('#content').innerHTML = head(t('map_title'), t('map_sub'), `<div class="switch-row">${pills}</div>`) +
     `<section class="grid kpis mstats">${stat('map', 'teal', t('map_stat_used'), `${tt.used}<small>/${tt.slots}</small>`)}
       ${stat('grid', 'yellow', t('map_stat_free'), tt.slots - tt.used)}
       ${stat('box', 'lilac', t('map_stat_items'), tt.items)}
-      ${stat('alert', tt.low ? 'red' : 'teal', t('map_stat_low'), tt.low)}</section>` +
-    (MAP.view === '3d' ? map3d(MAP.data, max) : mapFlat(MAP.data, max)) + legend +
-    `<div class="card" id="mapDetail"></div>` +
+      ${stat('alert', 'yellow', '▲ ' + t('health_low'), warningCount)}
+      ${stat('x', 'red', '⊗ ' + t('health_out'), outCount)}</section>` +
+    `<div class="card map-tools"><label class="fld">${esc(t('map_search'))}<input type="search" class="in" id="mapSearch" value="${esc(MAP.query)}" placeholder="${esc(t('map_search_hint'))}"></label>
+    <label class="fld">${esc(t('map_filter'))}<select class="in" id="mapFilter">${['all', 'low', 'warning', 'out', 'empty'].map(filter => `<option value="${filter}" ${MAP.filter === filter ? 'selected' : ''}>${esc(t('map_filter_' + filter))}</option>`).join('')}</select></label>
+    <span id="mapSearchStatus" role="status" aria-live="polite"></span>${btnHtml(t('map_refresh'), 'map-refresh', '', 'clock')}</div>
+    <div class="map-workspace"><div>${MAP.view === '3d' ? map3d(MAP.data, max) : mapFlat(MAP.data, max)}${legend}</div>
+    <aside class="card" id="mapDetail" aria-label="${esc(t('map_details'))}" aria-live="polite"></aside></div>` +
     (MAP.data.legacy.length ? `<div class="card"><p class="sec-title">${esc(t('loc_legacy'))}</p>
       <p class="sub" style="margin:-4px 0 10px">${esc(t('loc_legacy_hint'))}</p><div class="mcells">${MAP.data.legacy.map(c => mapCell(c, max)).join('')}</div></div>` : '');
   if (MAP.view === '3d') { MAP.rx = MAP_ROT.rx; MAP.rz = MAP_ROT.rz; mapFit(); mapApplyAngle(); }
+  $('#mapSearch').addEventListener('input', event => { MAP.query = event.target.value; mapSearch(); });
+  $('#mapFilter').addEventListener('change', event => { MAP.filter = event.target.value; mapApplyFilters(); });
+  mapApplyFilters();
   mapDetail();
 }
 
@@ -693,8 +749,11 @@ RENDER.locations = async (_, live) => {
   if (!live()) return;
   if (!(await ok(r))) return;
   MAP.data = r;
+  MAP.searchRequest++;
+  MAP.matches = null;
   if (MAP.sel && !r.sections.some(z => z.cells.some(c => c.code === MAP.sel)) && !r.legacy.some(c => c.code === MAP.sel)) MAP.sel = '';
   mapRender();
+  if (MAP.query.trim()) mapSearch();
 };
 
 (() => {                                                    // drag-to-rotate and resize for the 3D scene
@@ -775,12 +834,12 @@ RENDER.history = async (_, live) => {
   if (!live()) return;
   if (!(await ok(r))) return;
   const actName = a => t('hx_act_' + a);
-  $('#content').innerHTML = head(t('nav_history'), t('hx_sub')) + `<div class="card" style="padding:0"><div class="table-wrap" style="max-height:none">` +
+  $('#content').innerHTML = head(t('nav_history'), t('hx_sub')) + `<p class="sub">${esc(t('hx_order_hint'))}</p><div class="card" style="padding:0"><div class="table-wrap" style="max-height:none">` +
     (r.rows.length ? `<table><thead><tr><th>${esc(t('hx_col_when'))}</th><th>${esc(t('hx_col_what'))}</th><th>${esc(t('hx_col_item'))}</th>
     <th>${esc(t('hx_col_detail'))}</th><th></th></tr></thead><tbody>${r.rows.map(h => `<tr>
-    <td class="muted" style="white-space:nowrap">${esc(h.ts)}</td><td>${esc(actName(h.action))}</td><td class="clip">${esc(h.label)}</td>
-    <td class="clip">${esc(h.detail)}</td><td style="text-align:end">${h.undone ? `<span class="muted">${esc(t('hx_btn_undone'))}</span>`
-      : btnHtml(t('hx_btn'), 'undo', '', '', `data-id="${h.id}"`)}</td></tr>`).join('')}</tbody></table>`
+    <td class="muted" style="white-space:nowrap">#${h.id}<br>${esc(h.ts)}</td><td>${h.operation !== 'change' ? `<b>${esc(t(h.operation === 'undo' ? 'hx_btn' : 'hx_redo'))}</b><br>` : ''}${esc(actName(h.action))}${h.source_id ? `<small> · #${h.source_id}</small>` : ''}</td><td class="clip">${esc(h.label)}</td>
+    <td style="min-width:220px;white-space:normal;overflow-wrap:anywhere">${esc(h.detail)}</td><td style="text-align:end">${h.undone ? `<span class="muted">${esc(t('hx_reversed'))}</span>`
+      : btnHtml(h.reverse_label, 'undo', '', '', `data-id="${h.id}"`)}</td></tr>`).join('')}</tbody></table>`
       : `<div class="empty-note" style="padding:40px">${esc(t('ui_nodata'))}</div>`) + `</div></div>`;
 };
 async function undoEntry(id) {
@@ -819,6 +878,8 @@ RENDER.settings = async (_, live) => {
       <td style="text-align:end">${btnHtml(t('rp_btn'), 'rp-restore', '', '', `data-name="${esc(x.name)}"`)}</td></tr>`).join('')}</tbody></table></div></div>`;
   const pills = (list, cur, act) => `<div class="switch-row">${list.map(([v, l]) => `<button type="button" class="pill ${v === cur ? 'on' : ''}" data-act="${act}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
   $('#content').innerHTML = head(t('set_title'), t('set_sub')) + `
+    <div class="card"><h3>${esc(t('backup_local_first'))}</h3><p class="sub">${esc(t('backup_workflow'))}</p>
+    <div class="actions">${btnHtml(t('tx_btn_export'), 'tx-export', 'primary', 'archive')}${btnHtml(t('tx_btn_restore'), 'tx-restore', '', 'down')}</div></div>
     <div class="card"><div class="set-row"><b>${esc(t('set_lang'))}</b>${pills(Object.entries(B.langs), B.lang, 'set-lang')}</div>
       <div class="set-row"><b>${esc(t('set_theme'))}</b>${pills([['light', t('theme_light')], ['dark', t('theme_dark')]], B.theme, 'set-theme')}</div>
       <p class="sub">${esc(t('set_rtl'))}</p></div>
@@ -1042,9 +1103,13 @@ const ACT = {
   'map-pick': el => {
     if (Date.now() - (window.__mapDragged || 0) < 250) return;           // a drag in the 3D view is not a click
     MAP.sel = MAP.sel === el.dataset.code ? '' : el.dataset.code;
-    $$('[data-act="map-pick"]').forEach(x => x.classList.toggle('on', x.dataset.code === MAP.sel));
+    MAP.reqSel++;
+    $$('[data-act="map-pick"]').forEach(x => { x.classList.toggle('on', x.dataset.code === MAP.sel); x.setAttribute('aria-pressed', String(x.dataset.code === MAP.sel)); });
     mapDetail();
   },
+  'map-refresh': () => go('locations'),
+  'map-move': el => go('movement', {id: Number(el.dataset.id)}),
+  'map-add': el => { S.carry = {section: el.dataset.code[0], part: el.dataset.code.slice(1)}; go('item'); },
   'map-view': el => { MAP.view = el.dataset.v; mapRender(); },
   'map-angle': el => { Object.assign(MAP, el.dataset.v === 'top' ? {rx: 0, rz: 0} : MAP_ROT); mapFit(); mapApplyAngle(); },
   'set-lang': el => setLanguage(el.dataset.v),

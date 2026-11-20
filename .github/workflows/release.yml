@@ -31,6 +31,14 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate web interface
+        run: |
+          node --check src/personal_warehouse/webui/static/app.js
+          node --test tests/map_ui.test.cjs
+
       - name: Make sure Inno Setup is available
         shell: pwsh
         run: |
@@ -38,7 +46,17 @@ jobs:
 
       - name: Build app and installer
         shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1
+        run: powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -RequireBothPackages
+
+      - name: Preserve both distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-release-${{ github.ref_name }}
+          path: |
+            Output/PersonalWarehouse-Setup-*.exe
+            Output/PersonalWarehouse-*.msix
+            Output/SHA256SUMS.txt
+          if-no-files-found: error
 
       - name: Release notes from CHANGELOG
         shell: pwsh
@@ -47,6 +65,10 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: Output/PersonalWarehouse-Setup-*.exe
+          files: |
+            Output/PersonalWarehouse-Setup-*.exe
+            Output/PersonalWarehouse-*.msix
+            Output/SHA256SUMS.txt
+          draft: true
           body_path: notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}

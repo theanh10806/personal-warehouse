@@ -107,6 +107,28 @@ def test_locations_map(api):
     assert m["sections"][2]["used"] == 1 and m["sections"][2]["units"] == "7" and cell["names"]
 
 
+def test_map_legacy_location_only_returns_its_items(api):
+    from personal_warehouse.core.database import db
+    old_id = new_item(api, name="Legacy")["id"]
+    new_item(api, name="Current")
+    with db() as connection:
+        connection.execute("UPDATE items SET section='F',part='2' WHERE id=?", (old_id,))
+    assert [row["id"] for row in api.inventory({"location": "loc:F2"})["rows"]] == [old_id]
+    assert api.inventory({"location": "loc:F99"})["rows"] == []
+
+
+def test_map_distinguishes_low_stock_from_out_of_stock(api):
+    new_item(api, name="Out", quantity="0", min_stock="0")
+    new_item(api, name="Low", quantity="2", min_stock="3")
+    new_item(api, name="Enough", quantity="10", min_stock="3")
+    new_item(api, name="No threshold", quantity="1", min_stock="0")
+    archived = new_item(api, name="Archived", quantity="0")["id"]
+    assert api.toggle_archive(archived, True)["ok"]
+    cells = api.locations()["sections"][0]["cells"]
+    assert (cells[0]["warning"], cells[0]["out"], cells[0]["low"]) == (1, 1, 2)
+    assert (cells[1]["warning"], cells[1]["out"], cells[1]["low"]) == (0, 0, 0)
+
+
 def test_delete_items_removes_history_and_makes_backup(api, data_dir):
     a = new_item(api, name="Alpha")["id"]
     b = new_item(api, name="Beta", section="B")["id"]

@@ -17,3 +17,4 @@ settings.json
 packaging/msix-staging/
 /PersonalWarehouse.spec
 try_update_ui.py
+/demo-data/

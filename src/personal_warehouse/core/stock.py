@@ -1,4 +1,6 @@
 """Stock rules: changing quantities (always logged) and finding an item from a scanned / typed code."""
+import math
+
 from personal_warehouse.config import CODE_RE
 from personal_warehouse.core.database import db, record_movement
 from personal_warehouse.core.formatting import qty_fmt
@@ -11,10 +13,22 @@ def apply_movement(iid, typ, q, price, reason):
 
     ``typ`` is "Stock In", "Stock Out" or "Adjustment" (for an adjustment ``q`` is the counted quantity).
     """
+    if typ not in ("Stock In", "Stock Out", "Adjustment"):
+        raise ValueError("Invalid movement type")
+    if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+               and math.isfinite(value) and value >= 0 for value in ((q,) if price is None else (q, price))):
+        raise ValueError("Quantity and price must be finite non-negative numbers")
+    if typ != "Adjustment" and q == 0:
+        raise ValueError("Movement quantity must be positive")
     with db() as con:
+        con.execute("BEGIN IMMEDIATE")
         r = con.execute("SELECT quantity,unit,min_stock,name,name_ar,item_code FROM items WHERE id=?", (iid,)).fetchone()
+        if r is None:
+            raise ValueError("Item does not exist")
         before = r["quantity"]
         after = before + q if typ == "Stock In" else before - q if typ == "Stock Out" else q
+        if not math.isfinite(after):
+            raise ValueError("Stock quantity exceeds the supported range")
         if after < -1e-9:
             raise ValueError(tr("err_not_enough", qty_fmt(before), unit_t(r["unit"])))
         after = max(after, 0.0)

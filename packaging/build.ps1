@@ -6,6 +6,7 @@
 #   $env:CODE_SIGN_PFX      = "C:\secure\cert.pfx"
 #   $env:CODE_SIGN_PASSWORD = "password"
 #   or $env:CODE_SIGN_THUMBPRINT = "ABCDEF0123..."
+param([switch]$RequireBothPackages)
 $ErrorActionPreference = "Stop"
 
 # ============================================================================
@@ -34,7 +35,8 @@ if ($LASTEXITCODE -ne 0) { throw "Installing dependencies failed." }
 # ============================================================================
 $version = python -c "from personal_warehouse import __version__; print(__version__)"
 if ($LASTEXITCODE -ne 0 -or -not $version) { throw "Cannot read application version." }
-$msixVersion = if ($version -match '^\d+\.\d+\.\d+\.\d+$') { $version } else { "$version.0" }
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Use the same stable major.minor.patch version for GitHub and Store." }
+$msixVersion = "$version.0"
 Write-Host "Building Personal Warehouse $version (MSIX: $msixVersion) with Python $pyVer"
 
 # ============================================================================
@@ -46,7 +48,8 @@ Remove-Item -Recurse -Force .\packaging\msix-staging -ErrorAction SilentlyContin
 # App icon: run `python packaging\make_icons.py my_icon.png` once; the .ico is then part of the repo.
 $iconIco = Join-Path (Get-Location) "src\personal_warehouse\webui\static\icon.ico"
 $iconArgs = @()
-if (Test-Path $iconIco) { $iconArgs = @("--icon", $iconIco) } else { Write-Warning "icon.ico not found - the EXE will have the default icon. Run packaging\make_icons.py." }
+if (Test-Path $iconIco) { $iconArgs = @("--icon", $iconIco) } else { throw "icon.ico not found. Run packaging\make_icons.py before building." }
+if (-not (Test-Path "src\personal_warehouse\webui\static\icon.png")) { throw "icon.png not found. Restore the application logo before building." }
 
 python -m PyInstaller --noconfirm --clean --windowed --onedir `
     @iconArgs `
@@ -139,6 +142,7 @@ if ($iscc) {
     }
     Write-Host "Installer: $installer"
 } else {
+    if ($RequireBothPackages) { throw "Inno Setup is required for a unified release." }
     Write-Warning "Inno Setup 6 not found. Skipping EXE installer."
 }
 
@@ -162,9 +166,11 @@ $manifestPath = ".\packaging\AppxManifest.xml"
 $assetsPath   = ".\packaging\Assets"
 
 if (-not $makeappx) {
+    if ($RequireBothPackages) { throw "Windows SDK makeappx.exe is required for a unified release." }
     Write-Warning "makeappx.exe not found. Skipping MSIX."
     Write-Host "Install Windows SDK: https://developer.microsoft.com/windows/downloads/windows-sdk/"
 } elseif (-not (Test-Path $manifestPath)) {
+    if ($RequireBothPackages) { throw "Store manifest is required for a unified release." }
     Write-Warning "Missing $manifestPath. Run packaging\init-store-assets.ps1 first."
 } else {
     Write-Host "=== Building MSIX package ==="
@@ -173,6 +179,14 @@ if (-not $makeappx) {
     New-Item -ItemType Directory -Force -Path "$staging\Assets" | Out-Null
 
     Copy-Item ".\dist\PersonalWarehouse\*" $staging -Recurse -Force
+    $sourceFiles = Get-ChildItem ".\dist\PersonalWarehouse" -Recurse -File
+    foreach ($sourceFile in $sourceFiles) {
+        $relative = $sourceFile.FullName.Substring((Resolve-Path ".\dist\PersonalWarehouse").Path.Length + 1)
+        $copiedFile = Join-Path $staging $relative
+        if ((Get-FileHash $sourceFile.FullName -Algorithm SHA256).Hash -ne (Get-FileHash $copiedFile -Algorithm SHA256).Hash) {
+            throw "Store payload differs from EXE payload: $relative"
+        }
+    }
 
     # ---------------------------------------------------------------------
     # Read manifest at BYTE level so we can strip a UTF-8 BOM if present.

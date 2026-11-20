@@ -64,22 +64,29 @@ _t("data_info", "Thư mục dữ liệu:\n{0}\nTự sao lưu: {1}/ (mỗi ngày,
 # ---- moving data to another computer / online copy
 _t("tx_title", "Chuyển dữ liệu", "Move your data", "نقل البيانات")
 _t("tx_files", "Gói dữ liệu kho", "Warehouse data package", "حزمة بيانات المخزن")
-_t("tx_card", "Chuyển sang máy mới / sao lưu online", "New computer / online backup", "جهاز جديد / نسخة على الإنترنت")
+_t("tx_card", "Sao lưu đầy đủ & chuyển máy", "Full backup & computer transfer", "نسخ كامل ونقل إلى جهاز آخر")
 _t("tx_card_hint",
    "Xuất toàn bộ (dữ liệu + ảnh) thành 1 file .pwbak. Sang máy mới: cài app, vào đây bấm Khôi phục và chọn file đó.",
    "Export everything (data + photos) as one .pwbak file. On a new computer: install the app, come here, press Restore and pick that file.",
    "صدّر كل شيء (البيانات + الصور) في ملف .pwbak واحد. على جهاز جديد: ثبّت التطبيق، ثم اضغط استعادة واختر الملف.")
 _t("tx_btn_export", "Xuất gói dữ liệu", "Export data package", "تصدير حزمة البيانات")
 _t("tx_btn_restore", "Khôi phục từ gói…", "Restore from package…", "استعادة من حزمة…")
-_t("tx_sync_title", "Đồng bộ online", "Online sync", "المزامنة عبر الإنترنت")
+_t("tx_sync_title", "Sao lưu bổ sung vào thư mục cloud", "Additional backup to a cloud folder", "نسخة إضافية في مجلد سحابي")
 _t("tx_sync_hint",
-   "Chọn một thư mục đang được OneDrive / Google Drive / Dropbox đồng bộ. App tự lưu 1 gói vào đó mỗi lần thoát (giữ 7 bản gần nhất). Máy mới chỉ cần đăng nhập cùng tài khoản đó rồi Khôi phục.",
-   "Pick a folder that OneDrive / Google Drive / Dropbox keeps online. The app saves a package there every time you quit (newest 7 kept). On a new computer, sign in to the same account and Restore.",
-   "اختر مجلدًا تزامنه OneDrive / Google Drive / Dropbox. يحفظ التطبيق حزمة فيه عند كل إغلاق (آخر 7 نسخ). على جهاز جديد سجّل الدخول بنفس الحساب ثم استعد.")
+   "Dữ liệu làm việc và sao lưu chính vẫn ở máy này. Chọn thư mục Google Drive / OneDrive / Dropbox để lưu thêm gói khi thoát hoặc bấm Sao lưu ngay (giữ 7 bản theo ngày, ghi đè bản cùng ngày). Phần mềm cloud chịu trách nhiệm tải lên; app không xác nhận tải lên thành công và không hợp nhất dữ liệu giữa các máy.",
+   "Working data and primary backups stay on this computer. Choose a Google Drive / OneDrive / Dropbox folder for an extra package on exit or Backup now (7 daily copies; same-day copy replaced). The cloud client uploads it; this app cannot confirm upload success and does not merge data between computers.",
+   "تبقى بيانات العمل والنسخ الأساسية على هذا الجهاز. اختر مجلد Google Drive / OneDrive / Dropbox لنسخة إضافية عند الإغلاق أو النسخ الآن (7 نسخ يومية؛ تُستبدل نسخة اليوم). برنامج السحابة يرفع الملف؛ لا يؤكد التطبيق نجاح الرفع ولا يدمج بيانات الأجهزة.")
 _t("tx_sync_none", "Chưa bật đồng bộ.", "Sync is off.", "المزامنة متوقفة.")
 _t("tx_sync_on", "Đang lưu vào: {0}\nLần cuối: {1}", "Saving to: {0}\nLast: {1}", "الحفظ في: {0}\nآخر مرة: {1}")
 _t("tx_btn_sync_pick", "Chọn thư mục…", "Choose folder…", "اختيار مجلد…")
-_t("tx_btn_sync_now", "Đồng bộ ngay", "Sync now", "زامن الآن")
+_t("tx_btn_sync_now", "Sao lưu ngay", "Back up now", "نسخ الآن")
+_t("tx_choose_desktop", "Hãy mở cửa sổ ứng dụng để chọn thư mục cloud. Trình duyệt không tự chọn thư mục sao lưu trên máy.",
+   "Open the desktop app to choose a cloud folder. The browser cannot choose a backup folder on your computer automatically.",
+   "افتح التطبيق لاختيار مجلد سحابي. المتصفح لا يختار مجلد نسخ على جهازك تلقائيًا.")
+_t("backup_local_first", "Ưu tiên sao lưu trên máy", "Local backups first", "النسخ المحلي أولاً")
+_t("backup_workflow", "1. Làm việc và giữ bản sao lưu trên máy. 2. Xuất gói .pwbak gồm dữ liệu, ảnh và lịch sử để cất trên máy/USB hoặc chuyển máy. 3. Lưu thêm bản vào thư mục cloud nếu cần. Trên máy mới: cài ứng dụng → Khôi phục từ gói; dữ liệu hiện có sẽ được thay thế sau xác nhận, không gộp hai kho.",
+   "1. Work and keep backups locally. 2. Export a .pwbak containing data, photos and history for local/USB storage or another computer. 3. Optionally keep another copy in a cloud folder. On the new computer: install the app → Restore from package; existing data is replaced after confirmation, not merged.",
+   "1. اعمل واحتفظ بالنسخ محليًا. 2. صدّر .pwbak بالبيانات والصور والسجل للحفظ أو النقل. 3. احتفظ بنسخة سحابية إضافية اختياريًا. على الجهاز الجديد ثبّت التطبيق واستعد الحزمة؛ تُستبدل البيانات بعد التأكيد ولا تُدمج.")
 _t("tx_btn_sync_off", "Tắt đồng bộ", "Turn off", "إيقاف")
 _t("tx_exported", "Đã xuất: {0}\n{1} mặt hàng, {2} ảnh. Chép file này sang máy mới (USB, email, Drive…).",
    "Exported: {0}\n{1} item(s), {2} photo(s). Copy this file to the new computer (USB, e-mail, Drive…).",
@@ -115,11 +122,20 @@ _t("hx_confirm", "Hoàn tác thay đổi này? (Việc hoàn tác cũng được
    "هل تريد التراجع عن هذا التغيير؟ (يُسجَّل التراجع أيضًا ويمكن التراجع عنه.)")
 _t("hx_done", "Đã hoàn tác: {0}", "Undone: {0}", "تم التراجع: {0}")
 _t("hx_btn", "Hoàn tác", "Undo", "تراجع")
+_t("hx_redo", "Làm lại", "Redo", "إعادة")
+_t("hx_confirm_reverse", "{0} mục này? Thao tác đảo ngược được ghi thành dòng mới. Với nhập/xuất, tồn hiện tại được điều chỉnh bù; với tạo/xóa, mặt hàng và các giao dịch đi kèm có thể bị xóa/khôi phục. Chỉ tiếp tục khi không xung đột dữ liệu mới hơn.",
+   "{0} this entry? A new reversal entry is recorded. Stock moves apply a compensating adjustment to current stock; create/delete may remove/restore the item and its movements. Continue only if this does not conflict with newer data.",
+   "{0} هذا السجل؟ يُسجل العكس في سجل جديد. حركات المخزون تضيف تسوية تعويضية؛ الإضافة والحذف قد يحذفان أو يستعيدان الصنف وحركاته. تابع فقط دون تعارض مع بيانات أحدث.")
+_t("hx_reversed_done", "{0}: {1}", "{0}: {1}", "{0}: {1}")
+_t("hx_reversed", "Đã đảo ngược · xem dòng mới hơn", "Reversed · see newer entry", "تم العكس · راجع السجل الأحدث")
+_t("hx_order_hint", "300 mục gần nhất, mới nhất ở trên; # là thứ tự ghi nhận. Hoàn tác nhập/xuất tạo điều chỉnh bù vào tồn hiện tại, không xóa giao dịch gốc. Nút Làm lại nằm ở dòng Hoàn tác mới tạo.",
+   "Latest 300 entries, newest first; # is recording order. Undoing stock moves adds a compensating adjustment to current stock; it does not erase the original move. Redo is on the new Undo entry.",
+   "آخر 300 سجل، الأحدث أولاً؛ # هو ترتيب التسجيل. التراجع عن الحركة يضيف تسوية تعويضية للمخزون الحالي ولا يحذف الحركة الأصلية. إعادة التنفيذ في سجل التراجع الجديد.")
 _t("hx_btn_undone", "Đã hoàn tác", "Undone", "تم التراجع")
 _t("nav_history", "Lịch sử thay đổi", "Change history", "سجل التغييرات")
-_t("hx_sub", "Mọi lần sửa, lưu trữ, xóa và nhập/xuất kho đều được ghi lại và hoàn tác được.",
-   "Every edit, archive, delete and stock movement is recorded and can be undone.",
-   "يُسجَّل كل تعديل وأرشفة وحذف وحركة مخزون ويمكن التراجع عنه.")
+_t("hx_sub", "Theo dõi thay đổi và đảo ngược thao tác khi dữ liệu hiện tại còn cho phép. Lịch sử không thay thế bản sao lưu.",
+   "Track changes and reverse operations when current data permits. History does not replace backups.",
+   "تتبّع التغييرات واعكس العمليات عندما تسمح البيانات الحالية. السجل لا يحل محل النسخ الاحتياطية.")
 _t("hx_col_when", "Thời gian", "When", "الوقت")
 _t("hx_col_what", "Việc đã làm", "What happened", "ما حدث")
 _t("hx_col_item", "Mặt hàng", "Item", "الصنف")

@@ -19,7 +19,7 @@ from personal_warehouse.core.database import db, record_movement
 from personal_warehouse.i18n import mv_t, tr
 
 UNDO_MARK = "↩ "
-_SKIP = {"id", "item_code", "quantity", "created_at", "updated_at", "date_added"}   # not part of "what an edit changes"
+_SKIP = {"id", "item_code", "quantity", "created_at", "updated_at", "date_added", "_restored_movements", "_undo_of", "_undo_depth"}
 _FIELD_KEYS = {"name": "f_name", "name_ar": "f_name_ar", "category": "f_category", "description": "f_description",
                "engine_application": "f_engine", "barcode": "f_barcode", "section": "f_section", "part": "f_part",
                "condition": "f_condition", "unit": "f_unit", "purchase_price": "f_buy", "selling_price": "f_sell",
@@ -77,8 +77,13 @@ def recent(limit=300, item_id=None):
             detail = tr("hx_delete_detail", len(b.get("movements", [])))
         else:
             detail = ""
-        out.append({"id": r["id"], "ts": r["ts"], "action": r["action"], "label": r["label"] or "",
-                    "detail": detail, "undone": bool(r["undone"])})
+        metadata = a or b or {}
+        depth = metadata.get("_undo_depth", 1 if (r["label"] or "").startswith(UNDO_MARK) else 0)
+        out.append({"id": r["id"], "ts": r["ts"], "action": r["action"], "label": (r["label"] or "").removeprefix(UNDO_MARK),
+                    "detail": detail, "undone": bool(r["undone"]),
+                    "operation": "undo" if depth % 2 else "redo" if depth else "change",
+                    "reverse_label": tr("hx_redo") if depth % 2 else tr("hx_btn"),
+                    "source_id": metadata.get("_undo_of")})
     return out
 
 
@@ -143,6 +148,7 @@ def undo(entry_id):
     from personal_warehouse.core.formatting import qty_fmt
     photos_back = []
     with db() as con:
+        con.execute("BEGIN IMMEDIATE")
         e = con.execute("SELECT * FROM history WHERE id=?", (entry_id,)).fetchone()
         if not e:
             raise ValueError(tr("hx_err_gone"))
@@ -169,8 +175,10 @@ def undo(entry_id):
         elif act == "create":
             if not cur:
                 raise ValueError(tr("hx_err_missing"))
-            n = con.execute("SELECT COUNT(*) FROM movements WHERE item_id=?", (iid,)).fetchone()[0]
-            if _state(cur) != _state(after) or n > 1:
+            moves = [dict(move) for move in con.execute("SELECT * FROM movements WHERE item_id=? ORDER BY id", (iid,))]
+            expected_moves = after.get("_restored_movements")
+            ledger_changed = moves != expected_moves if expected_moves is not None else len(moves) != (1 if after["quantity"] > 0 else 0)
+            if _state(cur) != _state(after) or cur["quantity"] != after["quantity"] or ledger_changed:
                 raise ValueError(tr("hx_err_changed"))
             photos, _ = delete_items_logged(con, [iid])
             con.execute("UPDATE history SET label=? WHERE id=(SELECT MAX(id) FROM history)", (mark,))
@@ -189,7 +197,9 @@ def undo(entry_id):
                 _insert(con, "movements", m)
             photos_back += [p for p in before.get("photos", []) if p]
             it = before["items"][0]
-            log(con, "create", it["id"], mark, None, snapshot(con, it["id"]))
+            restored = snapshot(con, it["id"])
+            restored["_restored_movements"] = before["movements"]
+            log(con, "create", it["id"], mark, None, restored)
 
         elif act == "movement":
             if not cur:
@@ -206,6 +216,13 @@ def undo(entry_id):
                                                     "qty_after": new})
         else:
             raise ValueError(tr("hx_err_gone"))
+        generated = con.execute("SELECT * FROM history ORDER BY id DESC LIMIT 1").fetchone()
+        field = "after" if generated["after"] else "before"
+        payload = json.loads(generated[field])
+        metadata = after or before or {}
+        depth = metadata.get("_undo_depth", 1 if label.startswith(UNDO_MARK) else 0)
+        payload.update(_undo_of=entry_id, _undo_depth=depth + 1)
+        con.execute(f"UPDATE history SET {field}=? WHERE id=?", (json.dumps(payload, ensure_ascii=False), generated["id"]))
         con.execute("UPDATE history SET undone=1 WHERE id=?", (entry_id,))
     for ph in photos_back:
         untrash_photo(ph)

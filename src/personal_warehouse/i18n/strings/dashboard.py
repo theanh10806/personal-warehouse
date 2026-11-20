@@ -2,6 +2,15 @@
 
 from personal_warehouse.i18n.core import add as _t
 
+_t("restock_out", "Hết hàng — cần mua bổ sung", "Out of stock — replenishment needed", "نفد المخزون — يلزم التزويد")
+_t("restock_low", "Đã chạm ngưỡng cảnh báo — cân nhắc mua bổ sung", "At or below the warning threshold — consider replenishing", "عند حد التنبيه أو دونه — يُنصح بالتزويد")
+_t("restock_quantity", "Gợi ý mua tối thiểu {0} {1} để đưa tồn về ngưỡng {2}. Đây không phải dự báo nhu cầu.",
+   "Consider buying at least {0} {1} to bring stock back to the threshold of {2}. This is not a demand forecast.",
+   "يُقترح شراء {0} {1} على الأقل لإعادة المخزون إلى الحد {2}. هذا ليس توقعًا للطلب.")
+_t("restock_review", "Cân nhắc đặt hàng; chưa có mức tồn mục tiêu cao hơn để tính lượng mua phù hợp.",
+   "Consider reordering; no higher target stock level is configured to calculate a suitable order quantity.",
+   "يُرجى النظر في الطلب؛ لا يوجد مستوى مخزون مستهدف أعلى لحساب كمية شراء مناسبة.")
+
 
 _t("dash_title", "Tổng quan kho", "Warehouse overview", "نظرة عامة على المستودع")
 _t("dash_sub", "Tồn kho, giá trị và những việc cần chú ý.", "Stock, value and what needs attention.",

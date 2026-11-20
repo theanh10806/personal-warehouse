@@ -18,6 +18,12 @@ sáng / tối, tạo tem QR và mã vạch Code 128, quét bằng máy quét USB
 
 ## Chạy từ mã nguồn
 
+### Sao lưu và chuyển máy
+
+Dữ liệu làm việc và sao lưu chính nằm trên máy. Xuất gói `.pwbak` để giữ bản đầy đủ (cơ sở dữ liệu, ảnh, lịch sử), sao chép qua USB hoặc chuyển sang máy khác. Trên máy mới, cài ứng dụng và chọn **Khôi phục từ gói**; thao tác này thay thế dữ liệu sau xác nhận, không hợp nhất hai kho.
+
+Sao lưu cloud là bản bổ sung qua thư mục Google Drive/OneDrive/Dropbox: app ghi gói lúc thoát hoặc khi bấm **Sao lưu ngay**, giữ 7 bản theo ngày và thay bản cùng ngày. Phần mềm cloud tải tệp lên; ứng dụng không xác nhận được việc tải lên đã hoàn tất. Không đặt cơ sở dữ liệu đang làm việc trực tiếp vào thư mục cloud. Bản sao tự động vào thư mục cloud chưa mã hóa; có thể xuất gói có mật khẩu để tự lưu lên cloud.
+
 ```bash
 git clone https://github.com/theanh10806/personal-warehouse
 cd personal-warehouse

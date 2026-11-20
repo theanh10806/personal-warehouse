@@ -75,15 +75,23 @@ def init_db():
 
 def pre_migration_backup():
     """Keep a copy of the old database before the schema is upgraded."""
-    try:
-        if config.DB_PATH.exists():
-            con = sqlite3.connect(config.DB_PATH)
+    if config.DB_PATH.exists():
+        con = sqlite3.connect(config.DB_PATH)
+        try:
             ver = con.execute("PRAGMA user_version").fetchone()[0]
+        finally:
             con.close()
-            if ver < SCHEMA_VERSION:
-                shutil.copy2(config.DB_PATH, config.BACKUP_DIR / f"before_v{SCHEMA_VERSION}_{datetime.now():%Y%m%d_%H%M%S}.db")
-    except Exception:
-        pass
+        if ver > SCHEMA_VERSION:
+            raise RuntimeError("Database belongs to a newer application version")
+        if ver < SCHEMA_VERSION:
+            target = config.BACKUP_DIR / f"before_v{SCHEMA_VERSION}_{datetime.now():%Y%m%d_%H%M%S_%f}.db"
+            temporary = target.with_suffix(".tmp")
+            try:
+                if not verified_backup(temporary):
+                    raise RuntimeError("Pre-migration backup verification failed")
+                os.replace(temporary, target)
+            finally:
+                temporary.unlink(missing_ok=True)
 
 
 def record_movement(con, item_id, typ, qty, reason, price, before, after):
@@ -107,6 +115,8 @@ def verify_db(path):
         con = sqlite3.connect(f"file:{Path(path).as_posix()}?mode=ro", uri=True)
         try:
             if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                return False
+            if con.execute("PRAGMA foreign_key_check").fetchone() is not None:
                 return False
             names = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             return {"items", "movements"} <= names

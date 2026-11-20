@@ -93,8 +93,27 @@ def check(repo=GITHUB_REPO, current=__version__, timeout=6):
 # ---------------------------------------------------------------------------------------------- self-update
 def is_store_package():
     """True when running from a Microsoft Store (MSIX) install: the Store updates those, never the app itself."""
+    if sys.platform != "win32":
+        return False
     exe = str(sys.executable or "").replace("/", "\\").lower()
-    return sys.platform == "win32" and "\\windowsapps\\" in exe
+    if "\\windowsapps\\" in exe:
+        return True
+    try:
+        import ctypes
+        from ctypes import wintypes
+        function = ctypes.windll.kernel32.GetCurrentPackageFullName
+        function.argtypes = [ctypes.POINTER(wintypes.UINT), wintypes.LPWSTR]
+        function.restype = wintypes.LONG
+        length = wintypes.UINT(0)
+        result = function(ctypes.byref(length), None)
+        if result == 122:
+            return True
+        if result == 15700:
+            return False
+    except (AttributeError, OSError):
+        pass
+    exe = str(sys.executable or "").replace("/", "\\").lower()
+    return "\\windowsapps\\" in exe
 
 
 def can_self_update():

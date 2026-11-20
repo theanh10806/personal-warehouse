@@ -4,6 +4,21 @@
 được dùng làm ghi chú phát hành trên GitHub (và hiển thị trong hộp thoại cập nhật của app).
 
 
+## [3.8.0] - 2026-11-20
+### Changed
+- Hợp nhất bản kế tiếp cho GitHub 3.7.0 và Microsoft Store 3.1.0: mã nguồn 3.8.0, MSIX 3.8.0.0; đóng gói từ cùng một lần build, giữ nguyên định danh Store và bộ cài.
+- Sao lưu trên máy là chính, chuyển máy bằng gói .pwbak; làm rõ sao lưu thư mục cloud không phải hợp nhất kho nhiều máy.
+- Cảnh báo sắp hết/hết hàng kèm nhà cung cấp nếu có và gợi ý lượng mua tối thiểu về ngưỡng.
+### Fixed
+- Hoàn tác tạo hàng từ tồn 0 từ chối nếu đã có giao dịch sau đó; làm lại thao tác xóa sau khôi phục đối chiếu đầy đủ sổ nhập/xuất.
+- Khóa giao dịch khi Undo để ngăn hai yêu cầu cùng đảo ngược một mục.
+- Lịch sử phân biệt thao tác gốc, Hoàn tác và Làm lại; hiển thị ID/tham chiếu, thứ tự mới nhất trước và xác nhận đúng mục được chọn.
+- Tăng an toàn ghi cấu hình, sao lưu trước nâng cấp, khôi phục có nhật ký và khóa một phiên ứng dụng.
+- Sửa nạp icon Windows 64-bit, hiển thị logo Tkinter/web và lỗi chuyển nhanh khỏi trang Nhập/Xuất.
+### Added
+- Sơ đồ kho tìm kiếm, bộ lọc, thao tác theo vị trí; ký hiệu và màu riêng cho sắp hết/hết hàng; bố cục màn hình nhỏ.
+- Dữ liệu mẫu, kiểm thử sự cố/đồng thời và kiểm tra JavaScript trong CI/phát hành.
+
 ## [3.7.0] - 2026-11-20
 ### Changed
 - **Sơ đồ kho** làm lại: mặt bằng 3 khu × 8 ngăn lấp đầy chiều ngang (không còn ô trống), màu đậm theo số mặt hàng, chấm đỏ khi có hàng sắp hết, thẻ thống kê trên đầu, bấm một ô để xem hàng ngay bên dưới (nút *Mở trong Kho hàng*).

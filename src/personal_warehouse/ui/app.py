@@ -4,6 +4,7 @@ Each page / feature lives in its own module under ui/pages and ui/features as a 
 that part's `_build_*`, `refresh_*` and action methods. They all share this window (`self`).
 """
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 
 from personal_warehouse.core.database import auto_backup
@@ -40,6 +41,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         install_wheel(self)
         self.bind("<Configure>", self._on_window_configure, add="+")
         self._setup()
+        self._set_brand_images()
         self.after(3000, self._auto_update_check)       # once per start, not on every UI rebuild
 
     def _fit_window(self):
@@ -47,6 +49,17 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         w, h = min(px(1360), sw - px(60)), min(px(840), sh - px(110))
         self.geometry(f"{w}x{h}+{max((sw - w) // 2, 0)}+{max((sh - h) // 2 - px(20), 0)}")
+
+    def _set_brand_images(self):
+        static = Path(__file__).resolve().parents[1] / "webui" / "static"
+        try:
+            self._window_icon = tk.PhotoImage(file=str(static / "icon.png"))
+            self.iconphoto(True, self._window_icon)
+            factor = max(1, round(self._window_icon.width() / px(40)))
+            self._sidebar_icon = self._window_icon.subsample(factor, factor)
+            self._brand_logo.configure(image=self._sidebar_icon, text="")
+        except (tk.TclError, OSError):
+            pass
 
     def set_language(self, code):
         if code in LANGS and code != current_lang():
@@ -87,6 +100,7 @@ class WarehouseApp(DashboardPage, InventoryPage, ItemFormPage, MovementsPage, Lo
         for w in self.winfo_children():
             w.destroy()
         self._setup()
+        self._set_brand_images()
 
     def _style(self):
         s = ttk.Style(self)

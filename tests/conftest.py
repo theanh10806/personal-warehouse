@@ -109,7 +109,7 @@ class FakeCanvas:
 
 class FakeTk:
     """Main window stand-in. Only real Tk methods exist; anything else is an AttributeError on purpose."""
-    _ALLOWED = ("title geometry minsize configure cget protocol mainloop bell update update_idletasks "
+    _ALLOWED = ("iconphoto title geometry minsize configure cget protocol mainloop bell update update_idletasks "
                 "wait_window bind bind_all option_add focus_set destroy after_cancel").split()
 
     def __init__(self, *a, **k):
@@ -155,7 +155,9 @@ def fake_tk(monkeypatch):
     filedialog = _module("tkinter.filedialog")
     messagebox = _module("tkinter.messagebox", askyesno=lambda *a, **k: True, showinfo=mock.MagicMock(),
                          showerror=mock.MagicMock())
-    tk = _module("tkinter", Tk=FakeTk, Toplevel=FakeToplevel, StringVar=FakeVar, BooleanVar=FakeBool, Canvas=FakeCanvas,
+    photo = mock.MagicMock()
+    photo.width.return_value = 512
+    tk = _module("tkinter", PhotoImage=mock.MagicMock(return_value=photo), Tk=FakeTk, Toplevel=FakeToplevel, StringVar=FakeVar, BooleanVar=FakeBool, Canvas=FakeCanvas,
                  TclError=type("TclError", (Exception,), {}), ttk=ttk, font=font, filedialog=filedialog,
                  messagebox=messagebox)
     for name, mod in (("tkinter", tk), ("tkinter.ttk", ttk), ("tkinter.font", font),

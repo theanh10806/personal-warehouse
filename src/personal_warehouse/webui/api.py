@@ -65,6 +65,17 @@ def _stock_state(r):
     return ""
 
 
+def _replenishment(row):
+    state = _stock_state(row)
+    if state not in ("out", "low"):
+        return None
+    shortfall = max(0, row["min_stock"] - row["quantity"])
+    return {"state": state, "supplier": (row["supplier"] or "").strip(),
+            "message": tr("restock_out" if state == "out" else "restock_low"),
+            "suggestion": tr("restock_quantity", qty_fmt(shortfall), unit_t(row["unit"]), qty_fmt(row["min_stock"]))
+            if shortfall > 0 else tr("restock_review")}
+
+
 def _label_options():
     return [{"value": k, "label": tr("kind_" + k)} for k in LABEL_KINDS]
 
@@ -164,7 +175,7 @@ class Api:
                 COALESCE(SUM(quantity*purchase_price),0) value,
                 COALESCE(SUM(quantity*(selling_price-purchase_price)),0) profit
                 FROM items WHERE is_active=1""").fetchone()
-            alerts = con.execute("""SELECT id,name,name_ar,section,part,quantity,min_stock
+            alerts = con.execute("""SELECT id,name,name_ar,section,part,quantity,min_stock,supplier,unit,is_active
                 FROM items WHERE is_active=1
                 AND (quantity<=0 OR (min_stock>0 AND quantity<=min_stock))
                 ORDER BY quantity,name LIMIT 100""").fetchall()
@@ -233,6 +244,7 @@ class Api:
             "insights": insights,
             "alerts": [{"id": a["id"], "name": item_name(a), "loc": make_location(a["section"], a["part"]),
                         "qty": qty_fmt(a["quantity"]), "min": qty_fmt(a["min_stock"]),
+                        "unit": unit_t(a["unit"]), "replenishment": _replenishment(a),
                         "state": "out" if a["quantity"] <= 0 else "low"} for a in alerts],
             "recent": [{"time": m["movement_date"][5:16], "name": item_name(m), "type": mv_t(m["movement_type"]),
                         "kind": {"Stock In": "in", "Stock Out": "out"}.get(m["movement_type"], ""),
@@ -254,7 +266,7 @@ class Api:
         if loc.startswith("sec:") and loc[4:] in SECTIONS:
             sql.append("AND section=?")
             args.append(loc[4:])
-        elif loc.startswith("loc:") and loc[4:5] in SECTIONS:
+        elif loc.startswith("loc:") and len(loc) > 5:
             s, p = parse_location(loc[4:])
             sql.append("AND section=? AND part=?")
             args += [s, p]
@@ -274,6 +286,7 @@ class Api:
                 units += r["quantity"]
                 value += r["quantity"] * r["purchase_price"]
             out.append({"id": r["id"], "code": r["item_code"], "name": item_name(r), "category": r["category"] or "",
+                        "replenishment": _replenishment(r),
                         "engine": r["engine_application"] or "", "location": make_location(r["section"], r["part"]),
                         "condition": cond_t(r["condition"]), "qty": f'{qty_fmt(r["quantity"])} {unit_t(r["unit"])}',
                         "buy": money(r["purchase_price"]), "sell": money(r["selling_price"]),
@@ -500,6 +513,7 @@ class Api:
         price = f"{r['purchase_price']:.2f}" if move_type == "Stock In" else \
             f"{r['selling_price']:.2f}" if move_type == "Stock Out" else ""
         return {"ok": True, "label": self._choice_label(r), "price": price, "state": _stock_state(r),
+                "replenishment": _replenishment(r),
                 "info": tr("mv_info", qty_fmt(r["quantity"]), unit_t(r["unit"]), make_location(r["section"], r["part"]),
                            money(r["purchase_price"]), money(r["selling_price"]), low)}
 
@@ -522,7 +536,7 @@ class Api:
             r, before, after = apply_movement(iid, typ, q, price, str(v.get("reason") or "").strip())
         except ValueError as e:
             return {"ok": False, "error": str(e), "title": tr("info_title")}
-        warn = tr("mv_warn") if r["min_stock"] > 0 and after <= r["min_stock"] else ""
+        warn = tr("restock_out") if after <= 0 else tr("restock_low") if r["min_stock"] > 0 and after <= r["min_stock"] else ""
         return {"ok": True, "warn": bool(warn),
                 "message": tr("mv_done", mv_t(typ), item_name(r), qty_fmt(before), qty_fmt(after), unit_t(r["unit"]), warn)}
 
@@ -668,7 +682,8 @@ class Api:
         with db() as con:
             stats = {(r["section"], r["part"]): r for r in con.execute(
                 "SELECT section,part,COUNT(*) n,SUM(quantity) u,"
-                "SUM(CASE WHEN quantity<=0 OR (min_stock>0 AND quantity<=min_stock) THEN 1 ELSE 0 END) low "
+                "SUM(CASE WHEN quantity<=0 OR (min_stock>0 AND quantity<=min_stock) THEN 1 ELSE 0 END) low, "
+                "SUM(CASE WHEN quantity<=0 THEN 1 ELSE 0 END) out "
                 "FROM items WHERE is_active=1 GROUP BY section,part")}
             names = {}
             for r in con.execute("SELECT section,part,name,name_ar FROM items WHERE is_active=1 "
@@ -678,7 +693,9 @@ class Api:
         def cell(s, p):
             r = stats.get((s, p))
             n, u, low = (r["n"], r["u"] or 0, r["low"] or 0) if r else (0, 0, 0)
+            depleted = r["out"] or 0 if r else 0
             return {"code": make_location(s, p), "n": n, "units": qty_fmt(u), "low": low,
+                    "out": depleted, "warning": low - depleted,
                     "names": names.get((s, p), [])[:3]}
 
         legacy = [dict(cell(s, p), code=make_location(s, p))
@@ -828,9 +845,7 @@ class Api:
     def sync_choose_folder(self):
         """Choose a folder that OneDrive / Google Drive / Dropbox keeps online. Backups are written there."""
         if self._window is None:
-            folder = config.DATA_DIR / "Sync"
-            folder.mkdir(parents=True, exist_ok=True)
-            path = str(folder)
+            return {"ok": False, "error": tr("tx_choose_desktop"), "title": tr("tx_sync_title")}
         else:
             path = self._dialog("folder")
         if not path:
@@ -865,10 +880,21 @@ class Api:
 
     @safe
     def history_undo(self, entry_id, confirmed=False):
+        import json
+        with db() as con:
+            entry = con.execute("SELECT * FROM history WHERE id=?", (int(entry_id),)).fetchone()
+        if not entry:
+            raise ValueError(tr("hx_err_gone"))
+        if entry["undone"]:
+            raise ValueError(tr("hx_err_done"))
+        metadata = json.loads(entry["after"] or entry["before"] or "{}")
+        depth = metadata.get("_undo_depth", 1 if (entry["label"] or "").startswith(history.UNDO_MARK) else 0)
+        caption = tr("hx_redo") if depth % 2 else tr("hx_btn")
         if not confirmed:
-            return {"ok": False, "needs_confirm": True, "title": tr("hx_title"), "message": tr("hx_confirm")}
+            return {"ok": False, "needs_confirm": True, "title": caption,
+                    "message": f'#{int(entry_id)} · {entry["label"]}\n{tr("hx_act_" + entry["action"])}\n\n{tr("hx_confirm_reverse", caption)}'}
         label = history.undo(int(entry_id))
-        return {"ok": True, "message": tr("hx_done", label)}
+        return {"ok": True, "message": tr("hx_reversed_done", caption, label.removeprefix(history.UNDO_MARK))}
 
     @safe
     def restore_points(self):
