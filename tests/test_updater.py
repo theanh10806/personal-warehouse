@@ -130,7 +130,8 @@ def test_download_ok_reports_progress(tmp_path):
     (GOOD, {"size": 5}, "size"),
     (b"<html>not an exe</html>", {}, "not a Windows program"),
     (b"", {}, "empty"),
-])
+], ids=["bad-sha256", "bad-size", "not-an-exe", "empty"])
+
 def test_download_rejects_bad_files_and_leaves_nothing(tmp_path, data, kw, msg):
     with pytest.raises(ValueError, match=msg):
         updater.download(GH, tmp_path / "s.exe", _open=_opener(data), **kw)
