@@ -57,6 +57,10 @@ _t("upd_disabled", "Chưa cấu hình kho GitHub nên chưa kiểm tra cập nh�
    "No GitHub repository is configured, so update checks are off.",
    "لم يتم إعداد مستودع GitHub، لذا فحص التحديثات متوقف.")
 _t("upd_status", "Có phiên bản mới: {0}", "New version available: {0}", "إصدار جديد متاح: {0}")
+_t("vg_older",
+   "Máy này đã có Personal Warehouse {0}, mới hơn bản {1} bạn vừa mở.\n\nBạn đang dùng bản mới rồi, nên bản cũ sẽ không chạy để tránh ghi đè dữ liệu. Hãy mở bản {0} và gỡ bản {1} này.\n\nNếu bạn đã chủ động gỡ bản mới để quay lại bản cũ, hãy xóa tệp:\n{2}",
+   "This computer already has Personal Warehouse {0}, which is newer than the {1} you just opened.\n\nYou are already on a newer version, so this older copy will not run, to avoid overwriting your data. Open {0} and uninstall this {1}.\n\nIf you removed the newer version on purpose to go back, delete this file:\n{2}",
+   "هذا الكمبيوتر يحتوي بالفعل على Personal Warehouse {0}، وهو أحدث من الإصدار {1} الذي فتحته للتو.\n\nأنت تستخدم إصدارًا أحدث بالفعل، لذلك لن تعمل هذه النسخة الأقدم لتجنب الكتابة فوق بياناتك. افتح الإصدار {0} وأزل الإصدار {1}.\n\nإذا أزلت الإصدار الأحدث عمدًا للعودة، فاحذف هذا الملف:\n{2}")
 _t("data_info", "Thư mục dữ liệu:\n{0}\nTự sao lưu: {1}/ (mỗi ngày, giữ {2} bản)",
    "Data folder:\n{0}\nAuto-backup: {1}/ (daily, last {2})", "مجلد البيانات:\n{0}\nنسخ تلقائي: {1}/ (يوميًا، آخر {2})")
 

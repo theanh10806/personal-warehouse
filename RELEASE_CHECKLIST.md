@@ -17,6 +17,7 @@
 - [ ] Download the paired packages from the same Actions artifact. Keep GitHub Release as draft while submitting the MSIX to Partner Center.
 - [ ] After Store approval and verification, publish the matching GitHub draft. Store approval timing means exact simultaneous availability cannot be guaranteed.
 - [ ] Test installing both channels under the same Windows account: same selected data folder, cross-channel single-instance lock, upgrade/downgrade refusal, and `.pwbak` restore. Verify Store removal leaves the shared data intact.
+- [ ] Version guard (`installed_version.txt`): with 3.8.0 run once, open Store/EXE 3.1.0 or 3.7.0 → "newer version" message and no start; run the old Setup.exe → refused; delete the file → old copy starts again.
 - [ ] Store identity Name/Publisher and Inno Setup AppId must remain unchanged. Store updates must never launch the GitHub EXE installer.
 
 - [ ] Create the public repository `theanh10806/personal-warehouse`; `GITHUB_REPO` is already set to `theanh10806/personal-warehouse`.

@@ -16,6 +16,7 @@
 - Tăng an toàn ghi cấu hình, sao lưu trước nâng cấp, khôi phục có nhật ký và khóa một phiên ứng dụng.
 - Sửa nạp icon Windows 64-bit, hiển thị logo Tkinter/web và lỗi chuyển nhanh khỏi trang Nhập/Xuất.
 ### Added
+- **Chỉ một bản trên máy**: bản Microsoft Store và bản GitHub dùng chung một tệp ghi phiên bản mới nhất (`%USERPROFILE%\\.personal_warehouse\\installed_version.txt`). Mở bản cũ hơn → hiện thông báo "bạn đang dùng bản mới rồi" và không chạy; bộ cài GitHub cũng từ chối cài bản thấp hơn bản đã có. Cùng một thư mục dữ liệu và cùng khóa một phiên như trước.
 - Sơ đồ kho tìm kiếm, bộ lọc, thao tác theo vị trí; ký hiệu và màu riêng cho sắp hết/hết hàng; bố cục màn hình nhỏ.
 - Dữ liệu mẫu, kiểm thử sự cố/đồng thời và kiểm tra JavaScript trong CI/phát hành.
 

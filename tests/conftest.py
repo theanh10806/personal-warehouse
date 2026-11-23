@@ -14,6 +14,7 @@ from unittest import mock
 import pytest
 
 os.environ["PW_DATA_DIR"] = tempfile.mkdtemp(prefix="pw_test_")
+os.environ["PW_STATE_DIR"] = tempfile.mkdtemp(prefix="pw_state_")      # version marker never touches the real home
 
 from personal_warehouse import config  # noqa: E402
 

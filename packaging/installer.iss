@@ -73,3 +73,30 @@ function RelaunchRequested: Boolean;
 begin
   Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
 end;
+
+{ One program per computer: the app (Store or this installer) records the newest version it has run in
+  %USERPROFILE%\.personal_warehouse\installed_version.txt (line 1 = version). Never install an older one over it. }
+function InitializeSetup: Boolean;
+var
+  Raw: AnsiString;
+  Text, FirstLine: String;
+  Installed, Mine: Int64;
+  Cut: Integer;
+begin
+  Result := True;
+  if not LoadStringFromFile(ExpandConstant('{userprofile}\.personal_warehouse\installed_version.txt'), Raw) then
+    Exit;
+  Text := String(Raw);
+  StringChangeEx(Text, #13, '', True);
+  Cut := Pos(#10, Text);
+  if Cut > 0 then FirstLine := Copy(Text, 1, Cut - 1) else FirstLine := Text;
+  FirstLine := Trim(FirstLine);
+  if StrToVersion(FirstLine, Installed) and StrToVersion('{#AppVersion}', Mine) then
+    if ComparePackedVersion(Installed, Mine) > 0 then
+    begin
+      MsgBox('Personal Warehouse ' + FirstLine + ' is already on this computer and is newer than ' + '{#AppVersion}' + '.' + #13#10 + #13#10 +
+             'Bạn đang dùng bản mới rồi (' + FirstLine + '), nên không cài bản cũ ' + '{#AppVersion}' + '.',
+             mbInformation, MB_OK);
+      Result := False;
+    end;
+end;

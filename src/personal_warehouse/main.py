@@ -18,7 +18,27 @@ def main(argv=None):
             else:
                 print("Personal Warehouse is already running.")
             return
+        if not _version_allowed():
+            return
         _run(argv)
+
+
+def _version_allowed():
+    """Only the newest installed version may run (Store and GitHub copies share one marker); older ones say so and stop."""
+    from personal_warehouse import version_guard
+    result = version_guard.check()
+    if result["status"] != "older":
+        version_guard.record()
+        return True
+    lang = load_settings().get("lang")                        # the language is only known once settings are read
+    set_language(lang if lang in LANGS else "vi")
+    text = version_guard.older_message(result["installed"])
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, text, "Personal Warehouse", 0x40)
+    else:
+        print(text)
+    return False
 
 
 def _run(argv=None):
