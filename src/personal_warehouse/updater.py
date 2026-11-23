@@ -181,7 +181,7 @@ def download(url, dest, sha256="", size=0, progress=None, cancelled=None, timeou
 
 def installer_command(path):
     """Silent upgrade: close the running app, keep going without prompts, then start the new version."""
-    return [str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/RELAUNCH=1"]
+    return [str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/LOG", "/RELAUNCH=1"]   # /LOG: setup log in %TEMP%, evidence if a silent install fails
 
 
 def launch_installer(path):

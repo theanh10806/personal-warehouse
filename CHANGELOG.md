@@ -4,6 +4,10 @@
 được dùng làm ghi chú phát hành trên GitHub (và hiển thị trong hộp thoại cập nhật của app).
 
 
+## [3.8.2] - 2026-11-23
+### Fixed
+- **Cập nhật trong app bị thất bại âm thầm ở 3.8.1**: bộ cài 3.8.1 dùng sai hằng số `{userprofile}` nên báo lỗi và dừng, app thoát rồi mở lại vẫn thấy bản cũ. Đã sửa; lỗi khi kiểm tra phiên bản không bao giờ chặn việc cài đặt nữa. Bộ cài cũng ghi log (`Setup Log ….txt` trong `%TEMP%`) để dễ tìm lỗi. Nếu bạn đã tải bộ cài 3.8.1, hãy dùng bộ cài 3.8.2.
+
 ## [3.8.1] - 2026-11-23
 ### Added
 - **Chỉ một bản trên máy**: bản Microsoft Store và bản GitHub dùng chung một tệp ghi phiên bản mới nhất (`%USERPROFILE%\.personal_warehouse\installed_version.txt`). Mở bản cũ hơn sẽ hiện thông báo "bạn đang dùng bản mới rồi" và không chạy; bộ cài GitHub cũng từ chối cài bản thấp hơn bản đã có. Dữ liệu và khóa một phiên vẫn dùng chung như trước.

@@ -79,3 +79,10 @@ def test_installer_reads_the_same_marker_file():
     iss = (Path(__file__).resolve().parents[1] / "packaging" / "installer.iss").read_text(encoding="utf-8")
     assert version_guard.MARKER_NAME in iss and ".personal_warehouse" in iss
     assert "InitializeSetup" in iss and "ComparePackedVersion" in iss
+
+
+def test_installer_uses_real_inno_constants_and_never_blocks_on_its_own_error():
+    iss = (Path(__file__).resolve().parents[1] / "packaging" / "installer.iss").read_text(encoding="utf-8")
+    assert "{userprofile}" not in iss                    # not an Inno constant: it aborted every 3.8.1 install
+    assert "{%USERPROFILE}" in iss                       # environment-variable constant
+    assert "try" in iss and "except" in iss              # a failing check must not stop an install

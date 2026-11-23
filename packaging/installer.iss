@@ -75,28 +75,40 @@ begin
 end;
 
 { One program per computer: the app (Store or this installer) records the newest version it has run in
-  %USERPROFILE%\.personal_warehouse\installed_version.txt (line 1 = version). Never install an older one over it. }
-function InitializeSetup: Boolean;
+  %USERPROFILE%\.personal_warehouse\installed_version.txt (line 1 = version). Never install an older one over it.
+  Any problem while checking must NOT stop an install, so the check is wrapped in try/except. }
+function InstalledIsNewer(var Found: String): Boolean;
 var
   Raw: AnsiString;
-  Text, FirstLine: String;
+  Text: String;
   Installed, Mine: Int64;
   Cut: Integer;
 begin
-  Result := True;
-  if not LoadStringFromFile(ExpandConstant('{userprofile}\.personal_warehouse\installed_version.txt'), Raw) then
+  Result := False;
+  if not LoadStringFromFile(ExpandConstant('{%USERPROFILE}\.personal_warehouse\installed_version.txt'), Raw) then
     Exit;
   Text := String(Raw);
   StringChangeEx(Text, #13, '', True);
   Cut := Pos(#10, Text);
-  if Cut > 0 then FirstLine := Copy(Text, 1, Cut - 1) else FirstLine := Text;
-  FirstLine := Trim(FirstLine);
-  if StrToVersion(FirstLine, Installed) and StrToVersion('{#AppVersion}', Mine) then
-    if ComparePackedVersion(Installed, Mine) > 0 then
+  if Cut > 0 then Found := Copy(Text, 1, Cut - 1) else Found := Text;
+  Found := Trim(Found);
+  if StrToVersion(Found, Installed) and StrToVersion('{#AppVersion}', Mine) then
+    Result := ComparePackedVersion(Installed, Mine) > 0;
+end;
+
+function InitializeSetup: Boolean;
+var
+  Found: String;
+begin
+  Result := True;
+  try
+    if InstalledIsNewer(Found) then
     begin
-      MsgBox('Personal Warehouse ' + FirstLine + ' is already on this computer and is newer than ' + '{#AppVersion}' + '.' + #13#10 + #13#10 +
-             'Bạn đang dùng bản mới rồi (' + FirstLine + '), nên không cài bản cũ ' + '{#AppVersion}' + '.',
-             mbInformation, MB_OK);
+      MsgBox('Personal Warehouse ' + Found + ' is already on this computer and is newer than {#AppVersion}.' + #13#10 + #13#10 +
+             'Bạn đang dùng bản mới rồi (' + Found + '), nên không cài bản cũ {#AppVersion}.', mbInformation, MB_OK);
       Result := False;
     end;
+  except
+    Log('Version check skipped: ' + GetExceptionMessage);
+  end;
 end;

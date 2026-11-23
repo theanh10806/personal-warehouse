@@ -154,7 +154,7 @@ def test_download_can_be_cancelled(tmp_path):
 
 def test_installer_command_is_silent_and_relaunches():
     cmd = updater.installer_command("C:/t/Setup.exe")
-    assert cmd[0] == "C:/t/Setup.exe" and "/SILENT" in cmd and "/RELAUNCH=1" in cmd and "/CLOSEAPPLICATIONS" in cmd
+    assert cmd[0] == "C:/t/Setup.exe" and "/SILENT" in cmd and "/RELAUNCH=1" in cmd and "/CLOSEAPPLICATIONS" in cmd and "/LOG" in cmd
 
 
 def test_launch_installer_needs_a_real_exe(tmp_path):
